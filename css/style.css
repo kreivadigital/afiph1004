@@ -1,0 +1,124 @@
+#overlay {
+  background: #000;
+  color: #666666;
+  position: fixed;
+  height: 100%;
+  width: 100%;
+  z-index: 5000;
+  top: 0;
+  left: 0;
+  float: left;
+  text-align: center;
+  padding-top: 25%;
+  opacity: .80;
+}
+#overlay_web {
+    background: #000;
+    color: #666666;
+    position: fixed;
+    height: 100%;
+    width: 100%;
+    z-index: 5000;
+    top: 0;
+    left: 0;
+    float: left;
+    text-align: center;
+    padding-top: 25%;
+    opacity: .80;
+  }
+.spinner {
+    margin: 0 auto;
+    height: 64px;
+    width: 64px;
+    animation: rotate 0.8s infinite linear;
+    border: 5px solid firebrick;
+    border-right-color: transparent;
+    border-radius: 50%;
+}
+@keyframes rotate {
+    0% {
+        transform: rotate(0deg);
+    }
+    100% {
+        transform: rotate(360deg);
+    }
+}
+
+.tablenav-pages span.current {
+    padding: 5px 10px 5px 10px;
+}
+
+.tablenav .tablenav-pages a, .tablenav-pages span.current {
+    border: 1px solid #ccc;
+    text-decoration: none;
+}
+
+.tablenav .tablenav-pages a {
+    padding: 7px 5px 6px 5px;
+    font-size: 14px;
+}
+
+/* Estilos del Modal */
+.modal-overlay {
+    /* Oculto por defecto */
+    display: none;
+    /* Posicionamiento y tamaño para cubrir toda la pantalla */
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    /* Fondo oscuro semitransparente */
+    background-color: rgba(0, 0, 0, 0.6);
+    /* Centrar el contenido del modal */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Asegurarse de que esté por encima de otros elementos */
+    z-index: 1000;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+    width: 90%; /* Ancho responsivo */
+    max-width: 400px; /* Ancho máximo para el modal */
+    text-align: center;
+}
+
+.modal-title {
+    font-size: 20px;
+    margin-bottom: 20px;
+    color: #333;
+}
+
+.modal-body {
+    margin-bottom: 25px;
+}
+
+.modal-input {
+    width: calc(100% - 20px); /* Ancho del input menos el padding */
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    font-size: 16px;
+    text-align: center; /* Centrar el texto como en la imagen */
+    outline: none; /* Quitar el borde de enfoque por defecto */
+}
+
+.modal-input:focus {
+    border-color: #007bff; /* Borde al enfocar */
+}
+
+.modal-actions {
+    display: flex;
+    justify-content: center; /* Centrar los botones horizontalmente */
+    gap: 15px; /* Espacio entre los botones */
+}
+
+/* Ocultar el modal por defecto */
+.modal-overlay {
+    display: none;
+}
