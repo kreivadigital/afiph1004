@@ -4,9 +4,12 @@ global $wpdb;
 $table_name = $wpdb->prefix . "hotels_config";
 $table_name_transactions = $wpdb->prefix . "hotels_transactions";
 
+// URL base del plugin para assets
+$plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
+
 $new_date = date('Y-m-d');
 
-$data_glob = $wpdb->get_results($wpdb->prepare("SELECT code_auth,client_id,client_secret,access_token,refresh_token from $table_name"));
+$data_glob = $wpdb->get_results("SELECT code_auth,client_id,client_secret,access_token,refresh_token FROM $table_name");
 foreach ($data_glob as $data_g) {
     $code_auth = $data_g->code_auth;
     $client_id_global = $data_g->client_id;
@@ -15,20 +18,20 @@ foreach ($data_glob as $data_g) {
     $refresh_token_global = $data_g->refresh_token;
 }
 
-// define("CALLBACK_URL", "https://localhost/hotel/wp-admin/admin.php?page=transactions_list");
-define("CALLBACK_URL", "https://contable.penthouse1004.com/wp-admin/admin.php?page=transactions_list");
-define("AUTH_URL", "https://hotels.cloudbeds.com/api/v1.2/oauth");
-define("ACCESS_TOKEN_URL", "https://hotels.cloudbeds.com/api/v1.2/access_token");
-define("TRANSACTIONS_URL", "https://hotels.cloudbeds.com/api/v1.2/getTransactions");
-define("GUEST_URL", "https://hotels.cloudbeds.com/api/v1.2/getGuest");
-define("SENDPDF_URL", "https://hotels.cloudbeds.com/api/v1.2/postReservationDocument");
-define("CLIENT_ID", $client_id_global);
-define("CLIENT_SECRET", $client_secret_global);
-define("SCOPE", ""); // optional
+// URL de callback dinamica basada en el sitio actual - usando defined() para evitar redefiniciones
+defined('CALLBACK_URL') || define('CALLBACK_URL', admin_url('admin.php?page=transactions_list'));
+defined('AUTH_URL') || define('AUTH_URL', 'https://hotels.cloudbeds.com/api/v1.2/oauth');
+defined('ACCESS_TOKEN_URL') || define('ACCESS_TOKEN_URL', 'https://hotels.cloudbeds.com/api/v1.2/access_token');
+defined('TRANSACTIONS_URL') || define('TRANSACTIONS_URL', 'https://hotels.cloudbeds.com/api/v1.2/getTransactions');
+defined('GUEST_URL') || define('GUEST_URL', 'https://hotels.cloudbeds.com/api/v1.2/getGuest');
+defined('SENDPDF_URL') || define('SENDPDF_URL', 'https://hotels.cloudbeds.com/api/v1.2/postReservationDocument');
+defined('CLIENT_ID') || define('CLIENT_ID', $client_id_global ?? '');
+defined('CLIENT_SECRET') || define('CLIENT_SECRET', $client_secret_global ?? '');
+defined('SCOPE') || define('SCOPE', ''); // optional
 
 function transactions_list() {
-    
-    global $wpdb, $table_name, $table_name_transactions, $code_auth, $access_token_global, $refresh_token_global;
+
+    global $wpdb, $table_name, $table_name_transactions, $code_auth, $access_token_global, $refresh_token_global, $plugin_url;
     $id = '1';
 
     if(isset($_GET['code'])){
@@ -106,7 +109,7 @@ function transactions_list() {
         <div class="wrap">
             <div id="overlay" style="display:none;">
                 <div class="spinner"></div>
-                <img src="https://contable.penthouse1004.com/wp-content/plugins/hotels/img/loading.gif" width="80" />
+                <img src="<?php echo esc_url($plugin_url . 'img/loading.gif'); ?>" width="80" />
             </div>
 
             <h2>Panel de Configuración Api</h2>

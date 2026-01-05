@@ -1,12 +1,15 @@
 <?php
 
 //insertar js admin logged in
-add_action( 'admin_enqueue_scripts', 'insertar_js' );  
+add_action( 'admin_enqueue_scripts', 'insertar_js' );
 
-function insertar_js() {  
+function insertar_js() {
 
-  wp_enqueue_script( 'main_js', WP_PLUGIN_URL . '/hotels/js/main.js', array ( 'jquery' ), 1.1, true); 
-  wp_register_script('main_js', WP_PLUGIN_URL . '/hotels/js/main.js');
+  // Obtener la URL base del plugin dinámicamente
+  $plugin_url = plugin_dir_url(dirname(dirname(__FILE__)));
+
+  wp_enqueue_script( 'main_js', $plugin_url . 'js/main.js', array ( 'jquery' ), 1.1, true);
+  wp_register_script('main_js', $plugin_url . 'js/main.js');
 
   wp_localize_script('main_js', 'ajax_var', array(
     'admin_url' => admin_url('admin-ajax.php'),
@@ -14,22 +17,22 @@ function insertar_js() {
   ));
 
   // Toast Message
-  wp_register_script('toastmessage_js', WP_PLUGIN_URL . '/hotels/css/Toast-Message/toastr.min.js', array('jquery'), '1', false ); 
-  wp_enqueue_script('toastmessage_js'); 
-  
-  wp_register_style( 'toastmessage_css',  WP_PLUGIN_URL . '/hotels/css/Toast-Message/toastr.min.css' );
-  wp_enqueue_style( 'toastmessage_css' ); 
+  wp_register_script('toastmessage_js', $plugin_url . 'css/Toast-Message/toastr.min.js', array('jquery'), '1', false );
+  wp_enqueue_script('toastmessage_js');
 
-  wp_register_style( 'style_css',  WP_PLUGIN_URL . '/hotels/css/style.css' );
+  wp_register_style( 'toastmessage_css',  $plugin_url . 'css/Toast-Message/toastr.min.css' );
+  wp_enqueue_style( 'toastmessage_css' );
+
+  wp_register_style( 'style_css',  $plugin_url . 'css/style.css' );
   wp_enqueue_style( 'style_css' );
 
   // SweetAlert
-  wp_register_script('sweetalert_js', 'https://cdn.jsdelivr.net/npm/sweetalert2@11', array('jquery'), '1', false ); 
-  wp_enqueue_script('sweetalert_js'); 
+  wp_register_script('sweetalert_js', 'https://cdn.jsdelivr.net/npm/sweetalert2@11', array('jquery'), '1', false );
+  wp_enqueue_script('sweetalert_js');
 
+  // Thickbox para modales (debe estar dentro de un hook de enqueue)
+  add_thickbox();
 }
-
-add_thickbox();
 
 function foo_render_action_page() {
   define( 'IFRAME_REQUEST', true );
