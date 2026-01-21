@@ -1,0 +1,24 @@
+# Ignore Vendor folder
+vendor/
+
+# Docker
+docker-compose.override.yml
+
+# Archivos de desarrollo local - ignorar toda la carpeta db_backup
+db_backup/
+
+# Logs
+*.log
+
+# Archivos temporales
+*.tmp
+*.bak
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
