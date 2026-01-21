@@ -19,8 +19,11 @@ define ("PROXY_PORT", "80");            # Proxy TCP port
 define ("URL", "https://wsaahomo.afip.gov.ar/ws/services/LoginCms");
 #define ("URL", "https://wsaa.afip.gov.ar/ws/services/LoginCms");
 define ("CUIT", "20085031202");            # Proxy TCP port
-define ("URL_WEB_FILES", 'https://contable.penthouse1004.com/wp-content/plugins/hotels/php/invoicesxml/');
-define ("URL_WEB_FILES_PDF", 'https://contable.penthouse1004.com/wp-content/plugins/hotels/php/invoicespdf/');
+
+// URLs dinamicas basadas en la ubicacion del plugin
+$plugin_base_url = plugin_dir_url(dirname(dirname(__FILE__)));
+define ("URL_WEB_FILES", $plugin_base_url . 'php/invoicesxml/');
+define ("URL_WEB_FILES_PDF", $plugin_base_url . 'php/invoicespdf/');
 
 function ajax_foo_handler() {
               
