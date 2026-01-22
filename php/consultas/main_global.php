@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Main Global - Funciones principales de facturacion AFIP
  *
@@ -132,9 +133,25 @@ function ajax_foo_handler()
         $transaction_id = $_POST['transaction_id'];
         $new_amount = $_POST['new_amount'];
 
+        // Obtener monto anterior para el log
+        $old_amount = $wpdb->get_var($wpdb->prepare(
+            "SELECT amount FROM {$table_name_transactions} WHERE id = %d",
+            $transaction_id
+        ));
+
         $update_monto_result = actualizar_monto_por_id($transaction_id, $new_amount);
 
         if ($update_monto_result === false) {
+            // Log error
+            SAH_Logger::system(
+                SAH_Logger::ERROR,
+                'amount_update',
+                'Error al actualizar monto: ' . $wpdb->last_error,
+                array('transaction_id' => $transaction_id, 'amount' => $new_amount),
+                array('transaction_id' => $transaction_id, 'old_amount' => $old_amount, 'new_amount' => $new_amount),
+                array('error' => $wpdb->last_error)
+            );
+
             wp_send_json_error([
                 'message' => 'Error al actualizar en la base de datos.',
                 'error_details' => $wpdb->last_error // Solo para depuración, no para usuario final
@@ -145,10 +162,73 @@ function ajax_foo_handler()
                 'rows_affected' => $update_monto_result
             ]);
         } else {
+            // Log exito
+            SAH_Logger::system(
+                SAH_Logger::INFO,
+                'amount_update',
+                "Monto actualizado de {$old_amount} a {$new_amount}",
+                array('transaction_id' => $transaction_id, 'amount' => $new_amount),
+                array('transaction_id' => $transaction_id, 'old_amount' => $old_amount),
+                array('new_amount' => $new_amount, 'rows_affected' => $update_monto_result)
+            );
+
             wp_send_json_success([
                 'message' => 'Monto actualizado.',
                 'rows_affected' => $update_monto_result
             ]);
+        }
+
+        wp_die();
+    }
+
+    if (isset($_POST['sync_transaction'])) {
+
+        $transaction_id = intval($_POST['transaction_id']);
+
+        // Obtener datos de la transaccion
+        $transaction = $wpdb->get_row($wpdb->prepare(
+            "SELECT id, propertyID, guestID, passportNumber FROM {$table_name_transactions} WHERE id = %d",
+            $transaction_id
+        ));
+
+        if (!$transaction) {
+            wp_send_json_error(['message' => 'Transaccion no encontrada.']);
+            wp_die();
+        }
+
+        // Obtener datos del guest desde CloudBeds
+        $data_guest = getGuest($transaction->propertyID, $transaction->guestID);
+
+        if (!$data_guest || !isset($data_guest->data)) {
+            wp_send_json_error(['message' => 'Error al obtener datos de CloudBeds.']);
+            wp_die();
+        }
+
+        // Extraer passportNumber de customFields
+        $pass_dni = 'NULO';
+        if (isset($data_guest->data->customFields) && is_array($data_guest->data->customFields) && count($data_guest->data->customFields) > 0) {
+            $pass_dni = $data_guest->data->customFields[0]->customFieldValue ?? 'NULO';
+        }
+
+        // Actualizar la transaccion en la DB
+        $updated = $wpdb->update(
+            $table_name_transactions,
+            array(
+                'passportNumber' => $pass_dni,
+                'country' => $data_guest->data->country ?? '',
+                'city' => $data_guest->data->city ?? '',
+                'address' => $data_guest->data->address ?? '',
+                'completeName' => trim(($data_guest->data->firstName ?? '') . ' ' . ($data_guest->data->lastName ?? ''))
+            ),
+            array('id' => $transaction_id),
+            array('%s', '%s', '%s', '%s', '%s'),
+            array('%d')
+        );
+
+        if ($updated === false) {
+            wp_send_json_error(['message' => 'Error al actualizar la base de datos.']);
+        } else {
+            wp_send_json_success(['message' => 'Transaccion sincronizada correctamente.']);
         }
 
         wp_die();
@@ -237,6 +317,16 @@ function ajax_foo_handler()
 
             if ($type_gen == 'NULL') {
 
+                // Log inicio Factura B
+                SAH_Logger::file(
+                    SAH_Logger::INFO,
+                    SAH_Logger::FACTURA_B,
+                    'FECAESolicitar_init',
+                    array('transaction_id' => $transactionID, 'amount' => $amount, 'cuit' => CUIT),
+                    null,
+                    'Iniciando solicitud Factura B'
+                );
+
                 //solicitar fecae afip
                 $data_fecae = FECAESolicitar($xml_token, $xml_sign, CUIT, $code_transaction, $type_gen);
 
@@ -273,6 +363,21 @@ function ajax_foo_handler()
                     //LOG ERROR XML
                     file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . "_ERROR.xml", $data_fecae);
 
+                    // Leer request XML para logging
+                    $request_xml_b = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . "_REQUEST.xml");
+
+                    // Log Factura B rechazada
+                    SAH_Logger::facturaB(
+                        SAH_Logger::ERROR,
+                        'FECAESolicitar',
+                        "Rechazado - Error: {$error_code} - {$error_msg}",
+                        array('transaction_id' => $transactionID, 'error_code' => $error_code, 'amount' => $amount),
+                        array('transaction_id' => $transactionID, 'amount' => $amount),
+                        array('resultado' => 'R', 'error_code' => $error_code, 'error_msg' => $error_msg, 'observaciones' => $observaciones),
+                        $data_fecae,
+                        $request_xml_b
+                    );
+
                     wp_send_json_success([
                         'data' => 'error',
                         'json_res' => $json2_result,
@@ -295,6 +400,21 @@ function ajax_foo_handler()
                         $save_name_file = saveUrlFile($code, $generate_pdf);
 
                         if ($save_name_file) {
+                            // Leer request XML para logging
+                            $request_xml_b = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . "_REQUEST.xml");
+
+                            // Log Factura B aprobada
+                            SAH_Logger::facturaB(
+                                SAH_Logger::INFO,
+                                'FECAESolicitar',
+                                'Aprobado - PDF generado: ' . $generate_pdf,
+                                array('transaction_id' => $transactionID, 'amount' => $amount),
+                                array('transaction_id' => $transactionID, 'amount' => $amount),
+                                array('resultado' => 'A', 'pdf' => $generate_pdf, 'pdf_id' => $data_send_pdf),
+                                $data_fecae,
+                                $request_xml_b
+                            );
+
                             wp_send_json_success(['data' => 'Generado con éxito.', 'name_file' => $generate_pdf, 'rell' => $url_file_web, 'file_id' => $data_send_pdf]);
                         } else {
                             wp_send_json_error(['data' => 'error.', 'name_file' => $generate_pdf, 'rell' => $url_file_web]);
@@ -438,8 +558,32 @@ function ajax_foo_handler()
             wp_send_json_success(['data' => 'Generado con éxito.', 'name_file' => $invoiceUrl, 'rell' => $url_file_web, 'file_id' => $data_send_pdf]);
         } else {
 
+            // Log inicio Factura T
+            SAH_Logger::file(
+                SAH_Logger::INFO,
+                SAH_Logger::FACTURA_T,
+                'FECAESolicitarTipoT_init',
+                array('transaction_id' => $transactionID, 'amount' => $amount, 'cuit' => CUIT),
+                null,
+                'Iniciando solicitud Factura T'
+            );
+
             // Solicitar autorización a WSCT (AFIP)
             $data_wsct = FECAESolicitarTipoT($xml_token, $xml_sign, CUIT, $code_transaction, $type_gen);
+
+            // Log respuesta cruda para diagnóstico
+            SAH_Logger::file(
+                SAH_Logger::INFO,
+                SAH_Logger::FACTURA_T,
+                'FECAESolicitarTipoT_raw_response',
+                array(
+                    'transaction_id' => $transactionID,
+                    'response_length' => strlen($data_wsct),
+                    'response_preview' => substr($data_wsct, 0, 300)
+                ),
+                null,
+                'Respuesta cruda de FECAESolicitarTipoT'
+            );
 
             // Parsear respuesta WSCT (diferente estructura que WSFE)
             $resultado = '';
@@ -482,6 +626,21 @@ function ajax_foo_handler()
                     $save_name_file = saveUrlFile($code, $generate_pdf);
 
                     if ($save_name_file) {
+                        // Leer request XML para logging
+                        $request_xml_t = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_REQUEST.xml");
+
+                        // Log Factura T aprobada
+                        SAH_Logger::facturaT(
+                            SAH_Logger::INFO,
+                            'FECAESolicitarTipoT',
+                            "Aprobado - CAE: {$cae}",
+                            array('transaction_id' => $transactionID, 'amount' => $amount, 'cae' => $cae),
+                            array('transaction_id' => $transactionID, 'amount' => $amount),
+                            array('resultado' => 'A', 'cae' => $cae, 'fecha_vto' => $fechaVencimientoCae, 'pdf' => $generate_pdf),
+                            $data_wsct,
+                            $request_xml_t
+                        );
+
                         wp_send_json_success([
                             'data' => 'Generado con éxito.',
                             'name_file' => $generate_pdf,
@@ -500,6 +659,21 @@ function ajax_foo_handler()
                 // Rechazado - guardar log de error
                 file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_ERROR.xml", $data_wsct);
 
+                // Leer request XML para logging
+                $request_xml_t = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_REQUEST.xml");
+
+                // Log Factura T rechazada
+                SAH_Logger::facturaT(
+                    SAH_Logger::ERROR,
+                    'FECAESolicitarTipoT',
+                    "Rechazado - Error: {$error_code} - {$error_msg}",
+                    array('transaction_id' => $transactionID, 'error_code' => $error_code, 'amount' => $amount),
+                    array('transaction_id' => $transactionID, 'amount' => $amount),
+                    array('resultado' => 'R', 'error_code' => $error_code, 'error_msg' => $error_msg),
+                    $data_wsct,
+                    $request_xml_t
+                );
+
                 wp_send_json_success([
                     'data' => 'error',
                     'json_res' => 'R',
@@ -507,10 +681,25 @@ function ajax_foo_handler()
                     'error_msg' => $error_msg,
                 ]);
             } else {
-                // Error en la respuesta
+                // Error en la respuesta o respuesta vacía/malformada
                 file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf_error.json", "transactionID:" . $transactionID . "___ Data AFIP: " . $data_wsct . PHP_EOL, FILE_APPEND | LOCK_EX);
 
-                wp_send_json_error(['data' => 'error', 'data_afip' => $data_wsct]);
+                // Leer request XML para logging
+                $request_xml_t = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_REQUEST.xml");
+
+                // Log error de respuesta
+                SAH_Logger::facturaT(
+                    SAH_Logger::ERROR,
+                    'FECAESolicitarTipoT',
+                    "Respuesta sin resultado válido (ni A ni R)",
+                    array('transaction_id' => $transactionID, 'amount' => $amount, 'resultado' => $resultado),
+                    array('transaction_id' => $transactionID, 'amount' => $amount),
+                    array('resultado' => $resultado, 'error_code' => $error_code, 'error_msg' => $error_msg, 'response_preview' => substr($data_wsct, 0, 500)),
+                    $data_wsct,
+                    $request_xml_t
+                );
+
+                wp_send_json_error(['data' => 'error', 'data_afip' => $data_wsct, 'error_code' => $error_code, 'error_msg' => $error_msg]);
             }
         }
     }
@@ -1200,6 +1389,10 @@ function FECAESolicitar($Token, $Sign, $Cuit, $code_transaction, $timenow)
 
     $headers = ["POST /wsfev1/service.asmx HTTP/1.1", "Host: servicios1.afip.gov.ar", "Content-Type: text/xml; charset=utf-8", "Content-Length: " . strlen($xml_post_string)];
 
+    // Guardar XML de request para debug
+    $request_file = plugin_dir_path(__FILE__) . '../invoicesxml/' . $transactionID . '_REQUEST.xml';
+    @file_put_contents($request_file, $xml_post_string);
+
     $ch = curl_init();
     curl_setopt($ch, CURLOPT_URL, $soapUrl);
     curl_setopt($ch, CURLOPT_POST, true);
@@ -1211,16 +1404,14 @@ function FECAESolicitar($Token, $Sign, $Cuit, $code_transaction, $timenow)
     curl_close($ch);
 
     return $respons;
-    // return $amount.' - '.$monto_total.' - '.$monto_iva.' - '.$monto_trib;
-
 }
 
-function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
+/* function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
 {
     global $wpdb, $table_name_transactions;
 
     // Obtener datos de la transacción desde la base de datos
-    $sql_res = "SELECT id,transactionID,transactionDateTime,passportNumber,amount,country,address FROM $table_name_transactions WHERE id=" . $code_transaction;
+    $sql_res = "SELECT id,transactionID,transactionDateTime,passportNumber,amount,country,address,description,transactionType FROM $table_name_transactions WHERE id=" . $code_transaction;
     $res_t = $wpdb->get_results($sql_res) or die(mysql_error());
 
     foreach ($res_t as $key => $row) {
@@ -1230,13 +1421,24 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
         $transactionDateTime = $row->transactionDateTime;
         $country = $row->country;
         $address = $row->address ?? '';
+        $description = $row->description ?? '';
+        $transactionType = $row->transactionType ?? '';
     }
 
     // Limpiar número de documento (solo números y letras)
     $nroDoc = preg_replace('/[^A-Za-z0-9]/', '', $passportNumber);
 
-    // Tipo de documento: 94 = Pasaporte extranjero
-    $tipoDoc = 94;
+    // Detectar tipo de documento automáticamente según formato
+    if (preg_match('/^\d{11}$/', $nroDoc)) {
+        // Es un CUIT (11 dígitos numéricos)
+        $tipoDoc = 80;
+    } elseif (preg_match('/^\d{7,8}$/', $nroDoc)) {
+        // Es un DNI argentino (7-8 dígitos)
+        $tipoDoc = 96;
+    } else {
+        // Es pasaporte extranjero
+        $tipoDoc = 94;
+    }
 
     // Obtener código de país AFIP usando el mapeo ISO
     $codigoPais = obtenerCodigoAFIP($country, 298); // 298 = INDETERMINADO AMERICA como fallback
@@ -1246,6 +1448,23 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
 
     // ID Impositivo: 9 = No categorizado (turista extranjero sin identificación fiscal argentina)
     $idImpositivo = '9';
+
+    // Detectar forma de pago según transactionType o description
+    // Códigos WSCT: 01=Tarjeta Crédito, 02=Tarjeta Débito, 03=Cheque, 04=Transferencia, 05=Otra
+    $codigoFormaPago = '05'; // Por defecto: Otra
+    $descLower = strtolower($description . ' ' . $transactionType);
+
+    if (strpos($descLower, 'crédit') !== false || strpos($descLower, 'credit') !== false) {
+        $codigoFormaPago = '01'; // Tarjeta de Crédito
+    } elseif (strpos($descLower, 'débit') !== false || strpos($descLower, 'debit') !== false) {
+        $codigoFormaPago = '02'; // Tarjeta de Débito
+    } elseif (strpos($descLower, 'cheque') !== false) {
+        $codigoFormaPago = '03'; // Cheque
+    } elseif (strpos($descLower, 'transfer') !== false) {
+        $codigoFormaPago = '04'; // Transferencia Bancaria
+    } elseif (strpos($descLower, 'efectivo') !== false || strpos($descLower, 'cash') !== false) {
+        $codigoFormaPago = '05'; // Otra (efectivo se mapea a Otra en WSCT)
+    }
 
     // --- CÁLCULOS PARA FACTURA TIPO T ---
     // En Tipo T, el IVA se "reintegra" (se devuelve al turista)
@@ -1308,7 +1527,7 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
         '<idImpositivo>' . $idImpositivo . '</idImpositivo>' .
         '<codigoPais>' . $codigoPais . '</codigoPais>' .
         '<domicilioReceptor>' . htmlspecialchars($domicilio, ENT_XML1, 'UTF-8') . '</domicilioReceptor>' .
-        '<codigoRelacionEmisorReceptor>3</codigoRelacionEmisorReceptor>' .  // 3 = Alojamiento Directo a Turista No Residente
+        '<codigoRelacionEmisorReceptor>01</codigoRelacionEmisorReceptor>' .  // 01 = Turista adquiere directamente al prestador
         '<importeGravado>' . $gravado_str . '</importeGravado>' .
         '<importeReintegro>' . $importeReintegro_str . '</importeReintegro>' .
         '<importeTotal>' . $importeTotal_str . '</importeTotal>' .
@@ -1333,7 +1552,7 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
         '</arraySubtotalesIVA>' .
         '<arrayFormasPago>' .
         '<formaPago>' .
-        '<codigo>1</codigo>' .  // 1 = Efectivo (por defecto)
+        '<codigo>' . $codigoFormaPago . '</codigo>' .
         '</formaPago>' .
         '</arrayFormasPago>' .
         '</comprobanteRequest>' .
@@ -1369,6 +1588,267 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
     curl_close($ch);
     return $response;
 }
+*/
+function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
+{
+    global $wpdb, $table_name_transactions;
+
+    // =============================
+    // 1. OBTENER DATOS TRANSACCIÓN
+    // =============================
+    $sql = $wpdb->prepare(
+        "SELECT transactionID, transactionDateTime, passportNumber, amount, country, address, description, transactionType
+         FROM $table_name_transactions WHERE id = %d",
+        $code_transaction
+    );
+    $row = $wpdb->get_row($sql);
+
+    if (!$row) {
+        return '<error>Transacción no encontrada</error>';
+    }
+
+    $transactionDateTime = $row->transactionDateTime;
+    $passportNumber      = $row->passportNumber;
+    $amount              = (float)$row->amount;
+    $country             = $row->country;
+    $address             = $row->address ?: 'Sin domicilio informado';
+    $description         = strtolower($row->description . ' ' . $row->transactionType);
+
+    // =============================
+    // 2. DOCUMENTO RECEPTOR
+    // =============================
+    $nroDoc = preg_replace('/[^A-Za-z0-9]/', '', $passportNumber);
+
+    if (preg_match('/^\d{11}$/', $nroDoc)) {
+        $tipoDoc = 80;
+    } elseif (preg_match('/^\d{7,8}$/', $nroDoc)) {
+        $tipoDoc = 96;
+    } else {
+        $tipoDoc = 94;
+    }
+
+    // =============================
+    // 3. PAÍS / IMPOSITIVO
+    // =============================
+    $codigoPais   = obtenerCodigoAFIP($country, 298);
+    $idImpositivo = '9';
+
+    // =============================
+    // 4. FORMA DE PAGO WSCT
+    // =============================
+    // Códigos AFIP WSCT según documentación:
+    // 68 = Tarjeta de Crédito
+    // 69 = Tarjeta de Débito
+    // 9  = Transferencia Bancaria
+    // 99 = Otra (OTA/intermediarios)
+    $mapFormasPagoWSCT = [
+        'credit' => '68',
+        'debit'  => '69',
+        'ota'    => '99',
+    ];
+
+    $codigoFormaPago = null;
+
+    if (strpos($description, 'credit') !== false || strpos($description, 'crédito') !== false) {
+        $codigoFormaPago = $mapFormasPagoWSCT['credit'];
+    } elseif (strpos($description, 'debit') !== false || strpos($description, 'débito') !== false) {
+        $codigoFormaPago = $mapFormasPagoWSCT['debit'];
+    } elseif (
+        strpos($description, 'booking') !== false ||
+        strpos($description, 'expedia') !== false ||
+        strpos($description, 'ota') !== false
+    ) {
+        $codigoFormaPago = $mapFormasPagoWSCT['ota'];
+    }
+
+    if (!$codigoFormaPago) {
+        // Log error de forma de pago
+        SAH_Logger::file(
+            SAH_Logger::ERROR,
+            SAH_Logger::FACTURA_T,
+            'FECAESolicitarTipoT_forma_pago_error',
+            array(
+                'transaction_id' => $row->transactionID,
+                'description' => $description,
+                'amount' => $amount
+            ),
+            null,
+            'Forma de pago no detectada para WSCT. Description: ' . $description
+        );
+        return '<error>Forma de pago inválida para WSCT. No se detectó credit/debit/booking/expedia/ota en la descripción.</error>';
+    }
+
+    // =============================
+    // 4.1 DATOS MEDIO DE PAGO
+    // =============================
+    // tipoTarjeta AFIP: 1=AmEx, 2=Visa, 3=Mastercard, 99=Otra
+    // numeroTarjeta: últimos 6 dígitos (numérico)
+    // tipoCuenta/numeroCuenta: valores numéricos para OTA
+    $formaPagoExtraXML = '';
+
+    switch ($codigoFormaPago) {
+        case '68': // Tarjeta de Crédito
+        case '69': // Tarjeta de Débito
+            $formaPagoExtraXML = '
+                <tipoTarjeta>99</tipoTarjeta>
+                <numeroTarjeta>999999</numeroTarjeta>';
+            break;
+
+        case '99': // OTA/Otra
+            // Para código 99 (Otra) no se requieren campos adicionales
+            $formaPagoExtraXML = '';
+            break;
+    }
+
+    // =============================
+    // 5. CÁLCULOS FACTURA T
+    // =============================
+    // El reintegro es el IVA que se devuelve al turista extranjero
+    // AFIP requiere que importeReintegro sea NEGATIVO (menor o igual a cero)
+    $montoNeto        = round($amount / 1.21, 2);
+    $montoIVA         = round($amount - $montoNeto, 2);
+    $importeReintegro = -$montoIVA;  // NEGATIVO - es el reintegro al turista
+    $importeTotal     = $montoNeto;
+
+    // =============================
+    // 6. COMPROBANTE
+    // =============================
+    $numeroComprobante = FECompUltimoAutorizadoTipoT($Token, $Sign, $Cuit);
+
+    date_default_timezone_set('America/Argentina/Buenos_Aires');
+    $fechaEmision = ($timenow === 'NULL')
+        ? date('Y-m-d', strtotime($transactionDateTime))
+        : date('Y-m-d');
+
+    // =============================
+    // 7. XML WSCT
+    // =============================
+    $xml = '<?xml version="1.0" encoding="utf-8"?>
+<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"
+                  xmlns:cts="http://ar.gob.afip.wsct/CTService/">
+  <soapenv:Header/>
+  <soapenv:Body>
+    <cts:autorizarComprobanteRequest>
+      <authRequest>
+        <token>' . htmlspecialchars($Token, ENT_XML1) . '</token>
+        <sign>' . htmlspecialchars($Sign, ENT_XML1) . '</sign>
+        <cuitRepresentada>' . $Cuit . '</cuitRepresentada>
+      </authRequest>
+      <comprobanteRequest>
+
+        <codigoTipoComprobante>195</codigoTipoComprobante>
+        <numeroPuntoVenta>2</numeroPuntoVenta>
+        <numeroComprobante>' . $numeroComprobante . '</numeroComprobante>
+        <fechaEmision>' . $fechaEmision . '</fechaEmision>
+        <codigoTipoAutorizacion>E</codigoTipoAutorizacion>
+
+        <codigoTipoDocumento>' . $tipoDoc . '</codigoTipoDocumento>
+        <numeroDocumento>' . $nroDoc . '</numeroDocumento>
+        <idImpositivo>' . $idImpositivo . '</idImpositivo>
+        <codigoPais>' . $codigoPais . '</codigoPais>
+        <domicilioReceptor>' . htmlspecialchars($address, ENT_XML1) . '</domicilioReceptor>
+        <codigoRelacionEmisorReceptor>01</codigoRelacionEmisorReceptor>
+
+        <importeGravado>' . number_format($montoNeto, 2, '.', '') . '</importeGravado>
+        <importeReintegro>' . number_format($importeReintegro, 2, '.', '') . '</importeReintegro>
+        <importeTotal>' . number_format($importeTotal, 2, '.', '') . '</importeTotal>
+
+        <codigoMoneda>PES</codigoMoneda>
+        <cotizacionMoneda>1</cotizacionMoneda>
+        <cancelaEnMismaMonedaExtranjera>N</cancelaEnMismaMonedaExtranjera>
+
+        <arrayItems>
+          <item>
+            <tipo>0</tipo>
+            <codigoTurismo>1</codigoTurismo>
+            <descripcion>Servicio de hoteleria - alojamiento</descripcion>
+            <codigoAlicuotaIVA>5</codigoAlicuotaIVA>
+            <importeIVA>' . number_format($montoIVA, 2, '.', '') . '</importeIVA>
+            <importeItem>' . number_format($amount, 2, '.', '') . '</importeItem>
+          </item>
+        </arrayItems>
+
+        <arraySubtotalesIVA>
+          <subtotalIVA>
+            <codigo>5</codigo>
+            <importe>' . number_format($montoIVA, 2, '.', '') . '</importe>
+          </subtotalIVA>
+        </arraySubtotalesIVA>
+
+        <arrayFormasPago>
+          <formaPago>
+            <codigo>' . $codigoFormaPago . '</codigo>'
+            . $formaPagoExtraXML . '
+          </formaPago>
+        </arrayFormasPago>
+
+      </comprobanteRequest>
+    </cts:autorizarComprobanteRequest>
+  </soapenv:Body>
+</soapenv:Envelope>';
+
+    // =============================
+    // 8. GUARDAR XML REQUEST (DEBUG)
+    // =============================
+    $request_file = plugin_dir_path(__FILE__) . '../invoicesxmlt/' . $row->transactionID . '_REQUEST.xml';
+    @file_put_contents($request_file, $xml);
+
+    // =============================
+    // 9. ENVIAR A WSCT (cURL)
+    // =============================
+    $soapUrl = "https://serviciosjava.afip.gob.ar/wsct/CTService";
+
+    $headers = [
+        "POST /wsct/CTService HTTP/1.1",
+        "Host: serviciosjava.afip.gob.ar",
+        "Content-Type: text/xml; charset=utf-8",
+        'SOAPAction: "http://ar.gob.afip.wsct/CTService/autorizarComprobante"',
+        "Content-Length: " . strlen($xml)
+    ];
+
+    $ch = curl_init();
+    curl_setopt($ch, CURLOPT_URL, $soapUrl);
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $xml);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+    curl_setopt($ch, CURLOPT_TIMEOUT, 60);
+
+    $response = curl_exec($ch);
+
+    if ($response === false) {
+        $curl_error = curl_error($ch);
+        curl_close($ch);
+
+        // Log error cURL
+        SAH_Logger::file(
+            SAH_Logger::ERROR,
+            SAH_Logger::FACTURA_T,
+            'FECAESolicitarTipoT_curl_error',
+            array('transaction_id' => $row->transactionID, 'error' => $curl_error),
+            null,
+            'Error cURL al enviar a WSCT'
+        );
+
+        return '<error>CURL_ERROR: ' . htmlspecialchars($curl_error) . '</error>';
+    }
+
+    curl_close($ch);
+
+    // Log respuesta recibida
+    SAH_Logger::file(
+        SAH_Logger::INFO,
+        SAH_Logger::FACTURA_T,
+        'FECAESolicitarTipoT_response',
+        array('transaction_id' => $row->transactionID, 'response_length' => strlen($response)),
+        null,
+        'Respuesta recibida de WSCT'
+    );
+
+    return $response;
+}
+
+
 
 function FECompUltimoAutorizado($Token, $Sign, $Cuit)
 {
