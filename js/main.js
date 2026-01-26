@@ -608,8 +608,14 @@ function validateCamps() {
     let reservation_id = document.getElementById("search_reservaid");
     let metpago = document.getElementById("search_metpago");
 
-    if (datefrom.value !== '' && dateto.value !== '' && reservation_id.value === '') {
+    // Validar que si hay una fecha, deben estar ambas
+    if ((datefrom.value !== '' && dateto.value === '') || (datefrom.value === '' && dateto.value !== '')) {
+        toastr.error("Debe seleccionar ambas fechas (desde y hasta)");
+        return;
+    }
 
+    // Si hay fechas, importar transacciones de CloudBeds
+    if (datefrom.value !== '' && dateto.value !== '') {
         jQuery('#overlay').show();
         jQuery.ajax({
             url: ajax_var.admin_url,
@@ -635,9 +641,8 @@ function validateCamps() {
                 console.log(data.data);
             }
         });
-
-    } else if (datefrom.value === '' && dateto.value === '' && reservation_id.value !== '') {
-
+    } else if (reservation_id.value !== '') {
+        // Sin fechas pero con reservationID: importar por reserva
         jQuery('#overlay').show();
         jQuery.ajax({
             url: ajax_var.admin_url,
@@ -646,8 +651,8 @@ function validateCamps() {
             data: {
                 action: 'foo',
                 imp_transac: ajax_var.nonce,
-                resultsFrom: datefrom.value,
-                resultsTo: dateto.value,
+                resultsFrom: '',
+                resultsTo: '',
                 reservationID: reservation_id.value,
                 met_pago: metpago.value
             },
@@ -663,13 +668,9 @@ function validateCamps() {
                 console.log(data.data);
             }
         });
-
-    } else if (datefrom.value === '' && dateto.value === '' && reservation_id.value === '' && metpago.value !== '') {
-
-        window.location.href = window.location.origin + '/wp-admin/admin.php?page=transactions_list&resultsFrom&resultsTo&reservationID&metpago=' + metpago.value;
-
     } else {
-        toastr.error("Error");
+        // Sin fechas ni reserva: solo filtrar por tipo de pago (usa fecha actual en PHP)
+        window.location.href = window.location.origin + '/wp-admin/admin.php?page=transactions_list&resultsFrom=&resultsTo=&reservationID=&metpago=' + metpago.value;
     }
 
 }
