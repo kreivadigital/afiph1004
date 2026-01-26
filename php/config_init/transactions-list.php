@@ -217,9 +217,9 @@ function transactions_list()
                             <div style="display: flex; flex-direction: column;">
                                 <label style="margin-bottom: 4px;"><b>TIPO DE PAGO</b></label>
                                 <select name="search_metpago" id="search_metpago" class="form-control">
-                                    <option value="all" <?php echo ($_GET['metpago'] == 'all' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Ambos</option>
-                                    <option value="credit" <?php echo ($_GET['metpago'] == 'credit') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
+                                    <option value="credit" <?php echo ($_GET['metpago'] == 'credit' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
                                     <option value="debit" <?php echo ($_GET['metpago'] == 'debit') ? 'selected' : ''; ?>>D&eacute;bito</option>
+                                    <option value="all" <?php echo ($_GET['metpago'] == 'all') ? 'selected' : ''; ?>>Ambos</option>
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column;">
@@ -240,9 +240,9 @@ function transactions_list()
                             <div style="display: flex; flex-direction: column;">
                                 <label style="margin-bottom: 4px;"><b>TIPO DE PAGO</b></label>
                                 <select name="search_metpago" id="search_metpago" class="form-control">
-                                    <option value="all" <?php echo ($_GET['metpago'] == 'all' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Ambos</option>
-                                    <option value="credit" <?php echo ($_GET['metpago'] == 'credit') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
+                                    <option value="credit" <?php echo ($_GET['metpago'] == 'credit' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
                                     <option value="debit" <?php echo ($_GET['metpago'] == 'debit') ? 'selected' : ''; ?>>D&eacute;bito</option>
+                                    <option value="all" <?php echo ($_GET['metpago'] == 'all') ? 'selected' : ''; ?>>Ambos</option>
                                 </select>
                             </div>
                             <div style="display: flex; flex-direction: column;">
@@ -264,9 +264,9 @@ function transactions_list()
                         <div style="display: flex; flex-direction: column;">
                             <label style="margin-bottom: 4px;"><b>TIPO DE PAGO</b></label>
                             <select name="search_metpago" id="search_metpago" class="form-control">
-                                <option value="all" selected>Ambos</option>
-                                <option value="credit">Cr&eacute;dito</option>
+                                <option value="credit" selected>Cr&eacute;dito</option>
                                 <option value="debit">D&eacute;bito</option>
+                                <option value="all">Ambos</option>
                             </select>
                         </div>
                         <div style="display: flex; flex-direction: column;">
@@ -299,7 +299,7 @@ function transactions_list()
             $datefrom = isset($_GET['resultsFrom']) ? sanitize_text_field($_GET['resultsFrom']) : '';
             $dateto = isset($_GET['resultsTo']) ? sanitize_text_field($_GET['resultsTo']) : '';
             $reservationID = isset($_GET['reservationID']) ? sanitize_text_field($_GET['reservationID']) : '';
-            $metpago = isset($_GET['metpago']) ? sanitize_text_field($_GET['metpago']) : 'all';
+            $metpago = isset($_GET['metpago']) ? sanitize_text_field($_GET['metpago']) : 'credit';
 
             // Construir WHERE dinámico
             $where_conditions = array();
