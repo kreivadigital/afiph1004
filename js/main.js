@@ -1,5 +1,5 @@
 // (function ($) {
-    	
+
 // 	$("#btnObtenerTurno").click(function () {
 //         alert('probando');
 //     });
@@ -14,7 +14,7 @@ function initAuthCodeFunctionToken() {
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             init: ajax_var.nonce
         },
         success: function (data) {
@@ -41,7 +41,7 @@ function closeThickboxTwo() {
     importTransactionsDateToday();
 }
 
-function importTransactions(){
+function importTransactions() {
 
     jQuery('#overlay').show();
     jQuery.ajax({
@@ -49,7 +49,7 @@ function importTransactions(){
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             imp_transac: ajax_var.nonce,
             resultsFrom: sessionStorage.getItem("resultsFrom"),
             resultsTo: sessionStorage.getItem("resultsTo"),
@@ -70,7 +70,7 @@ function importTransactions(){
 
 }
 
-function importTransactionsDateToday(){
+function importTransactionsDateToday() {
 
     jQuery('#overlay').show();
     jQuery.ajax({
@@ -78,7 +78,7 @@ function importTransactionsDateToday(){
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             imp_transac_date_today: ajax_var.nonce
         },
         success: function (data) {
@@ -96,7 +96,7 @@ function importTransactionsDateToday(){
 
 }
 
-function checkGetTransactionsNow(){
+function checkGetTransactionsNow() {
 
     jQuery('#overlay').show();
     jQuery.ajax({
@@ -104,7 +104,7 @@ function checkGetTransactionsNow(){
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             act_values_transactions: ajax_var.nonce
         },
         success: function (data) {
@@ -121,7 +121,7 @@ function checkGetTransactionsNow(){
 
 }
 
-function initLoadRecordsTransactions(){
+function initLoadRecordsTransactions() {
 
     jQuery('#overlay').show();
     jQuery.ajax({
@@ -129,7 +129,7 @@ function initLoadRecordsTransactions(){
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             init_load_records: ajax_var.nonce
         },
         success: function (data) {
@@ -145,172 +145,163 @@ function initLoadRecordsTransactions(){
 
 }
 
-function genFacturar(val){
-    
+function genFacturar(val) {
+
     console.log("llego");
-    
+
     jQuery('#overlay').show();
     jQuery.ajax({
         url: ajax_var.admin_url,
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             gen_facturar: ajax_var.nonce,
             code_transaction: val,
             type_gen: 'NULL'
         },
         success: function (data) {
-            
+
             console.log("funciono llamado");
-            
+
             jQuery('#overlay').hide();
-           
+
             console.log(data.data);
-            
-            if(data.data.data != 'error'){
-                document.getElementById(val).style.color = "#22b162";
-                document.getElementById(val).style.borderColor = "#22b162";
-                document.getElementById(val).textContent="Descargar";
+
+            if (data.data.data != 'error') {
                 toastr.success(data.data.data);
                 if (typeof data.data.rell !== 'undefined') {
-                    var link = document.createElement('a');
+                    let link = document.createElement('a');
                     link.href = data.data.rell;
                     link.download = data.data.name_file;
                     link.click();
                     link.remove();
                 }
                 // Recargar página después de la descarga
-                setTimeout(function() {
+                setTimeout(function () {
                     location.reload();
                 }, 1500);
-            }else{
+            } else {
 
                 console.log("error de llamado");
-                
+
                 toastr.error('Error de facturación');
                 Swal.fire({
-                  title: 'Error en la conexión con AFIP',
-                  showDenyButton: true,
-                  showCancelButton: true,
-                  confirmButtonText: 'Volver a intentar',
-                  denyButtonText: `Probar con fecha de hoy`,
-                  cancelButtonText: `Cancelar`,
+                    title: 'Error en la conexión con AFIP',
+                    showDenyButton: true,
+                    showCancelButton: true,
+                    confirmButtonText: 'Volver a intentar',
+                    denyButtonText: `Probar con fecha de hoy`,
+                    cancelButtonText: `Cancelar`,
                 }).then((result) => {
-                    
+
                     console.log("segundo llamado");
-                    
-                  /* Read more about isConfirmed, isDenied below */
-                  if (result.isConfirmed) {//repetimos el ciclo
 
-                    jQuery('#overlay').show();
-                    jQuery.ajax({
-                        url: ajax_var.admin_url,
-                        type: "POST",
-                        dataType: "json",
-                        data: {
-                            action: 'foo', 
-                            gen_facturar: ajax_var.nonce,
-                            code_transaction: val,
-                            type_gen: 'NULL'
-                        },
-                        success: function (data) {
-                            
-                            console.log("funciona el segundo");
-                            
-                            jQuery('#overlay').hide();
-                            console.log(data.data);
-                            if(data.data.data != 'error'){
-                                document.getElementById(val).style.color = "#22b162";
-                                document.getElementById(val).style.borderColor = "#22b162";
-                                document.getElementById(val).textContent="Descargar";
-                                toastr.success(data.data.data);
-                                if (typeof data.data.rell !== 'undefined') {
-                                    var link = document.createElement('a');
-                                    link.href = data.data.rell;
-                                    link.download = data.data.name_file;
-                                    link.click();
-                                    link.remove();
+                    /* Read more about isConfirmed, isDenied below */
+                    if (result.isConfirmed) {//repetimos el ciclo
+
+                        jQuery('#overlay').show();
+                        jQuery.ajax({
+                            url: ajax_var.admin_url,
+                            type: "POST",
+                            dataType: "json",
+                            data: {
+                                action: 'foo',
+                                gen_facturar: ajax_var.nonce,
+                                code_transaction: val,
+                                type_gen: 'NULL'
+                            },
+                            success: function (data) {
+
+                                console.log("funciona el segundo");
+
+                                jQuery('#overlay').hide();
+                                console.log(data.data);
+                                if (data.data.data != 'error') {
+                                    toastr.success(data.data.data);
+                                    if (typeof data.data.rell !== 'undefined') {
+                                        let link = document.createElement('a');
+                                        link.href = data.data.rell;
+                                        link.download = data.data.name_file;
+                                        link.click();
+                                        link.remove();
+                                    }
+                                    // Recargar página después de la descarga
+                                    setTimeout(function () {
+                                        location.reload();
+                                    }, 1500);
+                                } else {
+
+                                    console.log("tampoco el segundo");
+
+                                    toastr.error('Error de facturación');
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Hubo un error...',
+                                        text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
+                                    })
                                 }
-                                // Recargar página después de la descarga
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 1500);
-                            }else{
-
-                                console.log("tampoco el segundo");
-                                
-                                toastr.error('Error de facturación');
-                                Swal.fire({
-                                  icon: 'error',
-                                  title: 'Hubo un error...',
-                                  text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
-                                })
+                            },
+                            error: function (data) {
+                                jQuery('#overlay').hide();
+                                // console.log(data.data);
                             }
-                        },
-                        error: function (data) {
-                            jQuery('#overlay').hide();
-                            // console.log(data.data);
-                        }
-                    });
+                        });
 
-                  } else if (result.isDenied) {//repetimos el ciclo pero llamando la fecha de hoy
-                    
-                    console.log("repetimos el ciclo pero llamando la fecha de hoy");
-                    
-                    jQuery('#overlay').show();
-                    jQuery.ajax({
-                        url: ajax_var.admin_url,
-                        type: "POST",
-                        dataType: "json",
-                        data: {
-                            action: 'foo', 
-                            gen_facturar: ajax_var.nonce,
-                            code_transaction: val,
-                            type_gen: 'now'
-                        },
-                        success: function (data) {
-                            
-                            console.log("funciono");
-                            
-                            jQuery('#overlay').hide();
-                            console.log(data.data);
-                            if(data.data.data != 'error'){
-                                document.getElementById(val).style.color = "#22b162";
-                                document.getElementById(val).style.borderColor = "#22b162";
-                                document.getElementById(val).textContent="Descargar";
-                                toastr.success(data.data.data);
-                                if (typeof data.data.rell !== 'undefined') {
-                                    var link = document.createElement('a');
-                                    link.href = data.data.rell;
-                                    link.download = data.data.name_file;
-                                    link.click();
-                                    link.remove();
+                    } else if (result.isDenied) {//repetimos el ciclo pero llamando la fecha de hoy
+
+                        console.log("repetimos el ciclo pero llamando la fecha de hoy");
+
+                        jQuery('#overlay').show();
+                        jQuery.ajax({
+                            url: ajax_var.admin_url,
+                            type: "POST",
+                            dataType: "json",
+                            data: {
+                                action: 'foo',
+                                gen_facturar: ajax_var.nonce,
+                                code_transaction: val,
+                                type_gen: 'now'
+                            },
+                            success: function (data) {
+
+                                console.log("funciono");
+
+                                jQuery('#overlay').hide();
+                                console.log(data.data);
+                                if (data.data.data != 'error') {
+                                    toastr.success(data.data.data);
+                                    if (typeof data.data.rell !== 'undefined') {
+                                        let link = document.createElement('a');
+                                        link.href = data.data.rell;
+                                        link.download = data.data.name_file;
+                                        link.click();
+                                        link.remove();
+                                    }
+                                    // Recargar página después de la descarga
+                                    setTimeout(function () {
+                                        location.reload();
+                                    }, 1500);
+                                } else {
+
+                                    console.log("no funciono");
+
+
+                                    toastr.error('Error de facturación');
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Hubo un error...',
+                                        text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
+                                    })
                                 }
-                                // Recargar página después de la descarga
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 1500);
-                            }else{
-
-                                console.log("no funciono");
-                                
-                                
-                                toastr.error('Error de facturación');
-                                Swal.fire({
-                                  icon: 'error',
-                                  title: 'Hubo un error...',
-                                  text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
-                                })
+                            },
+                            error: function (data) {
+                                jQuery('#overlay').hide();
+                                // console.log(data.data);
                             }
-                        },
-                        error: function (data) {
-                            jQuery('#overlay').hide();
-                            // console.log(data.data);
-                        }
-                    });
+                        });
 
-                  }else{}
+                    } else { }
                 })
             }
         },
@@ -322,7 +313,7 @@ function genFacturar(val){
 
 }
 
-function genFacturarT(val){
+function genFacturarT(val) {
 
     console.log("llego T");
 
@@ -345,145 +336,136 @@ function genFacturarT(val){
 
             console.log(data);
 
-            if(data.data.data != 'error'){
-                document.getElementById(val).style.color = "#22b162";
-                document.getElementById(val).style.borderColor = "#22b162";
-                document.getElementById(val).textContent="Descargar";
+            if (data.data.data != 'error') {
                 toastr.success(data.data.data);
                 if (typeof data.data.rell !== 'undefined') {
-                    var link = document.createElement('a');
+                    let link = document.createElement('a');
                     link.href = data.data.rell;
                     link.download = data.data.name_file;
                     link.click();
                     link.remove();
                 }
                 // Recargar página después de la descarga
-                setTimeout(function() {
+                setTimeout(function () {
                     location.reload();
                 }, 1500);
-            }else{
+            } else {
 
                 console.log("error de llamado T");
 
                 toastr.error('Error de facturación Tipo T');
                 Swal.fire({
-                  title: 'Error en la conexión con AFIP (Factura T)',
-                  showDenyButton: true,
-                  showCancelButton: true,
-                  confirmButtonText: 'Volver a intentar',
-                  denyButtonText: `Probar con fecha de hoy`,
-                  cancelButtonText: `Cancelar`,
+                    title: 'Error en la conexión con AFIP (Factura T)',
+                    showDenyButton: true,
+                    showCancelButton: true,
+                    confirmButtonText: 'Volver a intentar',
+                    denyButtonText: `Probar con fecha de hoy`,
+                    cancelButtonText: `Cancelar`,
                 }).then((result) => {
 
                     console.log("segundo llamado T");
 
-                  if (result.isConfirmed) {//repetimos el ciclo
+                    if (result.isConfirmed) {//repetimos el ciclo
 
-                    jQuery('#overlay').show();
-                    jQuery.ajax({
-                        url: ajax_var.admin_url,
-                        type: "POST",
-                        dataType: "json",
-                        data: {
-                            action: 'foo',
-                            gen_facturar_tipo_t: ajax_var.nonce,
-                            code_transaction: val,
-                            type_gen: 'NULL'
-                        },
-                        success: function (data) {
+                        jQuery('#overlay').show();
+                        jQuery.ajax({
+                            url: ajax_var.admin_url,
+                            type: "POST",
+                            dataType: "json",
+                            data: {
+                                action: 'foo',
+                                gen_facturar_tipo_t: ajax_var.nonce,
+                                code_transaction: val,
+                                type_gen: 'NULL'
+                            },
+                            success: function (data) {
 
-                            console.log("funciona el segundo T");
+                                console.log("funciona el segundo T");
 
-                            jQuery('#overlay').hide();
-                            console.log(data.data);
-                            if(data.data.data != 'error'){
-                                document.getElementById(val).style.color = "#22b162";
-                                document.getElementById(val).style.borderColor = "#22b162";
-                                document.getElementById(val).textContent="Descargar";
-                                toastr.success(data.data.data);
-                                if (typeof data.data.rell !== 'undefined') {
-                                    var link = document.createElement('a');
-                                    link.href = data.data.rell;
-                                    link.download = data.data.name_file;
-                                    link.click();
-                                    link.remove();
+                                jQuery('#overlay').hide();
+                                console.log(data.data);
+                                if (data.data.data != 'error') {
+                                    toastr.success(data.data.data);
+                                    if (typeof data.data.rell !== 'undefined') {
+                                        let link = document.createElement('a');
+                                        link.href = data.data.rell;
+                                        link.download = data.data.name_file;
+                                        link.click();
+                                        link.remove();
+                                    }
+                                    // Recargar página después de la descarga
+                                    setTimeout(function () {
+                                        location.reload();
+                                    }, 1500);
+                                } else {
+
+                                    console.log("tampoco el segundo T");
+
+                                    toastr.error('Error de facturación Tipo T');
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Hubo un error...',
+                                        text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
+                                    })
                                 }
-                                // Recargar página después de la descarga
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 1500);
-                            }else{
-
-                                console.log("tampoco el segundo T");
-
-                                toastr.error('Error de facturación Tipo T');
-                                Swal.fire({
-                                  icon: 'error',
-                                  title: 'Hubo un error...',
-                                  text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
-                                })
+                            },
+                            error: function (data) {
+                                jQuery('#overlay').hide();
                             }
-                        },
-                        error: function (data) {
-                            jQuery('#overlay').hide();
-                        }
-                    });
+                        });
 
-                  } else if (result.isDenied) {//repetimos el ciclo pero llamando la fecha de hoy
+                    } else if (result.isDenied) {//repetimos el ciclo pero llamando la fecha de hoy
 
-                    console.log("repetimos el ciclo T pero llamando la fecha de hoy");
+                        console.log("repetimos el ciclo T pero llamando la fecha de hoy");
 
-                    jQuery('#overlay').show();
-                    jQuery.ajax({
-                        url: ajax_var.admin_url,
-                        type: "POST",
-                        dataType: "json",
-                        data: {
-                            action: 'foo',
-                            gen_facturar_tipo_t: ajax_var.nonce,
-                            code_transaction: val,
-                            type_gen: 'now'
-                        },
-                        success: function (data) {
+                        jQuery('#overlay').show();
+                        jQuery.ajax({
+                            url: ajax_var.admin_url,
+                            type: "POST",
+                            dataType: "json",
+                            data: {
+                                action: 'foo',
+                                gen_facturar_tipo_t: ajax_var.nonce,
+                                code_transaction: val,
+                                type_gen: 'now'
+                            },
+                            success: function (data) {
 
-                            console.log("funciono T con fecha de hoy");
+                                console.log("funciono T con fecha de hoy");
 
-                            jQuery('#overlay').hide();
-                            console.log(data.data);
-                            if(data.data.data != 'error'){
-                                document.getElementById(val).style.color = "#22b162";
-                                document.getElementById(val).style.borderColor = "#22b162";
-                                document.getElementById(val).textContent="Descargar";
-                                toastr.success(data.data.data);
-                                if (typeof data.data.rell !== 'undefined') {
-                                    var link = document.createElement('a');
-                                    link.href = data.data.rell;
-                                    link.download = data.data.name_file;
-                                    link.click();
-                                    link.remove();
+                                jQuery('#overlay').hide();
+                                console.log(data.data);
+                                if (data.data.data != 'error') {
+                                    toastr.success(data.data.data);
+                                    if (typeof data.data.rell !== 'undefined') {
+                                        let link = document.createElement('a');
+                                        link.href = data.data.rell;
+                                        link.download = data.data.name_file;
+                                        link.click();
+                                        link.remove();
+                                    }
+                                    // Recargar página después de la descarga
+                                    setTimeout(function () {
+                                        location.reload();
+                                    }, 1500);
+                                } else {
+
+                                    console.log("no funciono T con fecha de hoy");
+
+                                    toastr.error('Error de facturación Tipo T');
+                                    Swal.fire({
+                                        icon: 'error',
+                                        title: 'Hubo un error...',
+                                        text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
+                                    })
                                 }
-                                // Recargar página después de la descarga
-                                setTimeout(function() {
-                                    location.reload();
-                                }, 1500);
-                            }else{
-
-                                console.log("no funciono T con fecha de hoy");
-
-                                toastr.error('Error de facturación Tipo T');
-                                Swal.fire({
-                                  icon: 'error',
-                                  title: 'Hubo un error...',
-                                  text: 'Revisar la fecha de la factura o intente de nuevo en algunos minutos!'
-                                })
+                            },
+                            error: function (data) {
+                                jQuery('#overlay').hide();
                             }
-                        },
-                        error: function (data) {
-                            jQuery('#overlay').hide();
-                        }
-                    });
+                        });
 
-                  }else{}
+                    } else { }
                 })
             }
         },
@@ -542,20 +524,20 @@ function guardarMonto() {
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             update_amount: ajax_var.nonce,
             transaction_id: currentId,
             new_amount: nuevoMonto
         },
         success: function (data) {
-            
+
             console.log("funciono llamado");
-            
+
             jQuery('#overlay').hide();
             closeModal();
-           
+
             console.log(data.data);
-            
+
             // Validar la respuesta
             if (data.success) { // Accede a la propiedad 'success' en la raíz del objeto
                 console.log('Mensaje de éxito:', data.data.message); // Accede a 'message' DENTRO de 'data'
@@ -568,7 +550,7 @@ function guardarMonto() {
                 console.error('Error del servidor:', data.data.message); // Accede a 'message' DENTRO de 'data'
                 console.error('Detalles del error (si aplica):', data.data.error_details); // Accede a 'error_details' DENTRO de 'data'
             }
-            
+
         },
         error: function (data) {
             jQuery('#overlay').hide();
@@ -579,13 +561,13 @@ function guardarMonto() {
 }
 
 // Opcional: Cerrar el modal haciendo clic fuera de él (en el overlay)
-document.getElementById('editModal').addEventListener('click', function(event) {
+document.getElementById('editModal').addEventListener('click', function (event) {
     if (event.target === this) { // Si el clic fue directamente en el overlay y no en el contenido
         closeModal();
     }
 });
 
-function genFacturarOld(val){
+function genFacturarOld(val) {
 
     jQuery('#overlay').show();
     jQuery.ajax({
@@ -593,7 +575,7 @@ function genFacturarOld(val){
         type: "POST",
         dataType: "json",
         data: {
-            action: 'foo', 
+            action: 'foo',
             gen_facturar: ajax_var.nonce,
             code_transaction: val,
         },
@@ -601,13 +583,13 @@ function genFacturarOld(val){
             jQuery('#overlay').hide();
             toastr.success(data.data.data);
             console.log(data.data);
-                if (typeof data.data.rell !== 'undefined') {
-                    var link = document.createElement('a');
-                    link.href = data.data.rell;
-                    link.download = data.data.name_file;
-                    link.click();
-                    link.remove();
-                }
+            if (typeof data.data.rell !== 'undefined') {
+                let link = document.createElement('a');
+                link.href = data.data.rell;
+                link.download = data.data.name_file;
+                link.click();
+                link.remove();
+            }
         },
         error: function (data) {
             jQuery('#overlay').hide();
@@ -619,14 +601,14 @@ function genFacturarOld(val){
 }
 
 
-function validateCamps(){
+function validateCamps() {
 
-    var datefrom = document.getElementById("search_desde");
-    var dateto = document.getElementById("search_hasta");
-    var reservation_id = document.getElementById("search_reservaid");
-    var metpago = document.getElementById("search_metpago");
+    let datefrom = document.getElementById("search_desde");
+    let dateto = document.getElementById("search_hasta");
+    let reservation_id = document.getElementById("search_reservaid");
+    let metpago = document.getElementById("search_metpago");
 
-    if (datefrom.value !== '' && dateto.value !== '' && reservation_id.value  === '') {
+    if (datefrom.value !== '' && dateto.value !== '' && reservation_id.value === '') {
 
         jQuery('#overlay').show();
         jQuery.ajax({
@@ -634,7 +616,7 @@ function validateCamps(){
             type: "POST",
             dataType: "json",
             data: {
-                action: 'foo', 
+                action: 'foo',
                 imp_transac: ajax_var.nonce,
                 resultsFrom: datefrom.value,
                 resultsTo: dateto.value,
@@ -654,7 +636,7 @@ function validateCamps(){
             }
         });
 
-    }else if(datefrom.value === '' && dateto.value === '' && reservation_id.value  !== ''){
+    } else if (datefrom.value === '' && dateto.value === '' && reservation_id.value !== '') {
 
         jQuery('#overlay').show();
         jQuery.ajax({
@@ -662,7 +644,7 @@ function validateCamps(){
             type: "POST",
             dataType: "json",
             data: {
-                action: 'foo', 
+                action: 'foo',
                 imp_transac: ajax_var.nonce,
                 resultsFrom: datefrom.value,
                 resultsTo: dateto.value,
@@ -682,11 +664,11 @@ function validateCamps(){
             }
         });
 
-    }else if(datefrom.value === '' && dateto.value === '' && reservation_id.value  === '' && metpago.value !== ''){
+    } else if (datefrom.value === '' && dateto.value === '' && reservation_id.value === '' && metpago.value !== '') {
 
         window.location.href = window.location.origin + '/wp-admin/admin.php?page=transactions_list&resultsFrom&resultsTo&reservationID&metpago=' + metpago.value;
 
-    }else{
+    } else {
         toastr.error("Error");
     }
 
