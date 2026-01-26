@@ -29,15 +29,16 @@ defined('CLIENT_ID') || define('CLIENT_ID', $client_id_global ?? '');
 defined('CLIENT_SECRET') || define('CLIENT_SECRET', $client_secret_global ?? '');
 defined('SCOPE') || define('SCOPE', ''); // optional
 
-function transactions_list() {
+function transactions_list()
+{
 
     global $wpdb, $table_name, $table_name_transactions, $code_auth, $access_token_global, $refresh_token_global, $plugin_url;
     $id = '1';
 
-    if(isset($_GET['code'])){
+    if (isset($_GET['code'])) {
 
-        if($code_auth == null){
-    
+        if ($code_auth == null) {
+
             $code = $_GET['code'];
 
             $data_token = getToken($code);
@@ -45,13 +46,13 @@ function transactions_list() {
             $refresh_token = $data_token->refresh_token;
 
             $data_update = $wpdb->update(
-                    $table_name, //table
-                    array('code_auth' => $code, 'access_token' => $access_token, 'refresh_token' => $refresh_token), //data
-                    array('id' => $id), //where
-                    array('%s'), //data format
-                    array('%s') //where format
+                $table_name, //table
+                array('code_auth' => $code, 'access_token' => $access_token, 'refresh_token' => $refresh_token), //data
+                array('id' => $id), //where
+                array('%s'), //data format
+                array('%s') //where format
             );
-            if($data_update){
+            if ($data_update) {
 
                 // $resource = getTransactions($access_token);
                 // $data_save = saveTransactions($resource);
@@ -66,40 +67,35 @@ function transactions_list() {
 
             }
         }
+    } else {
 
-    }else{
+        if ($refresh_token_global != null) {
 
-        if($refresh_token_global != null){
-
-            if(isset($_GET['resultsFrom'])){
-
-            }else{
+            if (isset($_GET['resultsFrom'])) {
+            } else {
 
                 $data_refresh_token = refreshToken($refresh_token_global);
                 $new_access_token = $data_refresh_token->access_token;
                 $new_refresh_token = $data_refresh_token->refresh_token;
 
                 $data_refresh_update = $wpdb->update(
-                        $table_name, //table
-                        array('access_token' => $new_access_token, 'refresh_token' => $new_refresh_token), //data
-                        array('id' => $id), //where
-                        array('%s'), //data format
-                        array('%s') //where format
+                    $table_name, //table
+                    array('access_token' => $new_access_token, 'refresh_token' => $new_refresh_token), //data
+                    array('id' => $id), //where
+                    array('%s'), //data format
+                    array('%s') //where format
                 );
-
             }
-
         }
-
     }
 
-    $url = add_query_arg( array(
+    $url = add_query_arg(array(
         'action'    => 'foo_modal_box',
         'TB_iframe' => 'false',
         'width'     => '600',
         'height'    => '150'
-    ), admin_url( 'admin.php' ) );
-    
+    ), admin_url('admin.php'));
+
 ?>
 
     <style>
@@ -119,9 +115,11 @@ function transactions_list() {
             box-sizing: border-box;
             overflow: auto;
         }
+
         #facturaModal.active {
             display: flex !important;
         }
+
         #facturaModal .modal-content {
             background: #fff;
             border-radius: 12px;
@@ -133,10 +131,19 @@ function transactions_list() {
             position: relative;
             margin: auto;
         }
+
         @keyframes modalPop {
-            from { opacity: 0; transform: scale(0.9) translateY(-20px); }
-            to { opacity: 1; transform: scale(1) translateY(0); }
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(-20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
+
         #facturaModal .modal-title {
             margin: 0 0 16px 0;
             font-size: 19px;
@@ -144,6 +151,7 @@ function transactions_list() {
             text-align: center;
             color: #1d2327;
         }
+
         #facturaModal #btn-fb,
         #facturaModal #btn-ft {
             flex: 1;
@@ -155,22 +163,27 @@ function transactions_list() {
             cursor: pointer;
             transition: all 0.2s;
         }
+
         #facturaModal #btn-fb {
             background: #0073aa;
             color: white;
         }
+
         #facturaModal #btn-fb:hover {
             background: #005a87;
             transform: translateY(-1px);
         }
+
         #facturaModal #btn-ft {
             background: #d63638;
             color: white;
         }
+
         #facturaModal #btn-ft:hover {
             background: #b32d2e;
             transform: translateY(-1px);
         }
+
         #facturaModal .modal-actions {
             margin-top: 20px;
             text-align: right;
@@ -188,130 +201,155 @@ function transactions_list() {
             <!-- <div class="notice notice-success is-dismissible">
                 <p>Para mostrar el buscador web a los clientes, cree una página nueva y pegue el siguiente shortcode: <code><b>[show_search]</b></code></p>
             </div> -->
-                <?php if (isset($message)): ?><div class="updated"><p><?php echo $message; ?></p></div><?php endif; ?>
+            <?php if (isset($message)): ?><div class="updated">
+                    <p><?php echo $message; ?></p>
+                </div><?php endif; ?>
 
             <div class="tablenav top">
                 <div class="alignleft actions">
                     <!--<a class="button button-primary thickbox" href="<?php echo $url ?>">Importar</a>-->
                 </div>
-                <div class="alignright actions">
-                    <!--<form method="post" action="<?php echo $_SERVER['PHP_SELF']; ?>?page=transactions_list" id="theForm">-->
-                        <?php if(isset($_GET['resultsFrom'])){ ?>
+                <div class="alignright actions" style="display: flex; align-items: flex-end; gap: 10px;">
+                    <?php if (isset($_GET['resultsFrom'])) { ?>
 
-                            <?php if($_GET['resultsFrom'] != ''){ ?>
+                        <?php if ($_GET['resultsFrom'] != '') { ?>
 
-                                <label><b>TIPO DE PAGO</b></label>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>TIPO DE PAGO</b></label>
                                 <select name="search_metpago" id="search_metpago" class="form-control">
                                     <option value="all" <?php echo ($_GET['metpago'] == 'all' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Ambos</option>
                                     <option value="credit" <?php echo ($_GET['metpago'] == 'credit') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
                                     <option value="debit" <?php echo ($_GET['metpago'] == 'debit') ? 'selected' : ''; ?>>D&eacute;bito</option>
                                 </select>
-                                <label><b>DESDE</b></label>
-                                <input type="date" value="<?php echo date('Y-m-d', strtotime($_GET['resultsFrom'])) ?>" placeholder="Buscar por transoper.." name="search_desde" id="search_desde">
-                                <label><b>HASTA</b></label>
-                                <input type="date" value="<?php echo date('Y-m-d', strtotime($_GET['resultsTo'])) ?>" placeholder="Buscar por transoper.." name="search_hasta" id="search_hasta">
-                                <label><b>ID RESERVA</b></label>
-                                <input type="text" value="<?php echo $_GET['reservationID']; ?>" placeholder="Buscar por Nro. Reserva" name="search_reservaid" id="search_reservaid">
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>DESDE</b></label>
+                                <input type="date" value="<?php echo date('Y-m-d', strtotime($_GET['resultsFrom'])) ?>" name="search_desde" id="search_desde">
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>HASTA</b></label>
+                                <input type="date" value="<?php echo date('Y-m-d', strtotime($_GET['resultsTo'])) ?>" name="search_hasta" id="search_hasta">
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>ID RESERVA</b></label>
+                                <input type="text" value="<?php echo $_GET['reservationID']; ?>" placeholder="Nro. Reserva" name="search_reservaid" id="search_reservaid">
+                            </div>
 
-                            <?php }else{ ?>
+                        <?php } else { ?>
 
-                                <label><b>TIPO DE PAGO</b></label>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>TIPO DE PAGO</b></label>
                                 <select name="search_metpago" id="search_metpago" class="form-control">
                                     <option value="all" <?php echo ($_GET['metpago'] == 'all' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Ambos</option>
                                     <option value="credit" <?php echo ($_GET['metpago'] == 'credit') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
                                     <option value="debit" <?php echo ($_GET['metpago'] == 'debit') ? 'selected' : ''; ?>>D&eacute;bito</option>
                                 </select>
-                                <label><b>DESDE</b></label>
-                                <input type="date" placeholder="Buscar por transoper.." name="search_desde" id="search_desde">
-                                <label><b>HASTA</b></label>
-                                <input type="date" placeholder="Buscar por transoper.." name="search_hasta" id="search_hasta">
-                                <label><b>ID RESERVA</b></label>
-                                <input type="text" value="<?php echo $_GET['reservationID']; ?>" placeholder="Buscar por Nro. Reserva" name="search_reservaid" id="search_reservaid">
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>DESDE</b></label>
+                                <input type="date" name="search_desde" id="search_desde">
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>HASTA</b></label>
+                                <input type="date" name="search_hasta" id="search_hasta">
+                            </div>
+                            <div style="display: flex; flex-direction: column;">
+                                <label style="margin-bottom: 4px;"><b>ID RESERVA</b></label>
+                                <input type="text" value="<?php echo $_GET['reservationID']; ?>" placeholder="Nro. Reserva" name="search_reservaid" id="search_reservaid">
+                            </div>
 
-                            <?php } ?>
+                        <?php } ?>
 
-                        <?php }else{ ?>
-                            <label><b>TIPO DE PAGO</b></label>
+                    <?php } else { ?>
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="margin-bottom: 4px;"><b>TIPO DE PAGO</b></label>
                             <select name="search_metpago" id="search_metpago" class="form-control">
                                 <option value="all" selected>Ambos</option>
                                 <option value="credit">Cr&eacute;dito</option>
                                 <option value="debit">D&eacute;bito</option>
                             </select>
-                            <label><b>DESDE</b></label>
-                            <input type="date" placeholder="Buscar por transoper.." name="search_desde" id="search_desde">
-                            <label><b>HASTA</b></label>
-                            <input type="date" placeholder="Buscar por transoper.." name="search_hasta" id="search_hasta">
-                            <label><b>ID RESERVA</b></label>
-                            <input type="text" placeholder="Buscar por Nro. Reserva" name="search_reservaid" id="search_reservaid">
-                        <?php } ?>
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="margin-bottom: 4px;"><b>DESDE</b></label>
+                            <input type="date" name="search_desde" id="search_desde">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="margin-bottom: 4px;"><b>HASTA</b></label>
+                            <input type="date" name="search_hasta" id="search_hasta">
+                        </div>
+                        <div style="display: flex; flex-direction: column;">
+                            <label style="margin-bottom: 4px;"><b>ID RESERVA</b></label>
+                            <input type="text" placeholder="Nro. Reserva" name="search_reservaid" id="search_reservaid">
+                        </div>
+                    <?php } ?>
 
 
-                        <button type="button" class="button-primary" onClick="validateCamps()">Buscar</button>
-                        <a class="button-secondary" href="<?php echo $_SERVER['PHP_SELF']; ?>?page=transactions_list">Limpiar</a>
+                    <button type="button" class="button-primary" onClick="validateCamps()">Buscar</button>
+                    <a class="button-secondary" href="<?php echo $_SERVER['PHP_SELF']; ?>?page=transactions_list">Limpiar</a>
                     <!--</form>-->
                 </div>
                 <br class="clear">
             </div>
             <?php
-                $pagenum = isset( $_GET['pagenum'] ) ? absint( $_GET['pagenum'] ) : 1;
-                $limit = 20; // number of rows in page
-                $offset = ( $pagenum - 1 ) * $limit;
+            $pagenum = isset($_GET['pagenum']) ? absint($_GET['pagenum']) : 1;
+            $limit = 20; // number of rows in page
+            $offset = ($pagenum - 1) * $limit;
 
-                // Obtener valores de filtros (GET tiene prioridad sobre POST)
-                $datefrom = isset($_GET['resultsFrom']) ? sanitize_text_field($_GET['resultsFrom']) : '';
-                $dateto = isset($_GET['resultsTo']) ? sanitize_text_field($_GET['resultsTo']) : '';
-                $reservationID = isset($_GET['reservationID']) ? sanitize_text_field($_GET['reservationID']) : '';
-                $metpago = isset($_GET['metpago']) ? sanitize_text_field($_GET['metpago']) : 'all';
+            // Obtener valores de filtros (GET tiene prioridad sobre POST)
+            $datefrom = isset($_GET['resultsFrom']) ? sanitize_text_field($_GET['resultsFrom']) : '';
+            $dateto = isset($_GET['resultsTo']) ? sanitize_text_field($_GET['resultsTo']) : '';
+            $reservationID = isset($_GET['reservationID']) ? sanitize_text_field($_GET['reservationID']) : '';
+            $metpago = isset($_GET['metpago']) ? sanitize_text_field($_GET['metpago']) : 'all';
 
-                // Construir WHERE dinámico
-                $where_conditions = array();
+            // Construir WHERE dinámico
+            $where_conditions = array();
 
-                // Filtro por fechas
-                if (!empty($datefrom) && !empty($dateto)) {
-                    $where_conditions[] = $wpdb->prepare(
-                        "DATE_FORMAT(transactionDateTime, '%%Y-%%m-%%d') BETWEEN %s AND %s",
-                        $datefrom,
-                        $dateto
-                    );
-                } elseif (empty($datefrom) && empty($dateto) && empty($reservationID)) {
-                    // Sin fechas ni reserva: mostrar solo fecha actual
-                    $where_conditions[] = "DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE()";
-                }
+            // Filtro por fechas
+            if (!empty($datefrom) && !empty($dateto)) {
+                $where_conditions[] = $wpdb->prepare(
+                    "DATE_FORMAT(transactionDateTime, '%%Y-%%m-%%d') BETWEEN %s AND %s",
+                    $datefrom,
+                    $dateto
+                );
+            } elseif (empty($datefrom) && empty($dateto) && empty($reservationID)) {
+                // Sin fechas ni reserva: mostrar solo fecha actual
+                $where_conditions[] = "DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE()";
+            }
 
-                // Filtro por reservationID
-                if (!empty($reservationID)) {
-                    $where_conditions[] = $wpdb->prepare("reservationID = %s", $reservationID);
-                }
+            // Filtro por reservationID
+            if (!empty($reservationID)) {
+                $where_conditions[] = $wpdb->prepare("reservationID = %s", $reservationID);
+            }
 
-                // Filtro por tipo de pago (solo si no es "all")
-                if (!empty($metpago) && $metpago !== 'all') {
-                    $where_conditions[] = $wpdb->prepare("transactionType = %s", $metpago);
-                }
+            // Filtro por tipo de pago (solo si no es "all")
+            if (!empty($metpago) && $metpago !== 'all') {
+                $where_conditions[] = $wpdb->prepare("transactionType = %s", $metpago);
+            }
 
-                // Construir la cláusula WHERE
-                $where_clause = '';
-                if (!empty($where_conditions)) {
-                    $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
-                }
+            // Construir la cláusula WHERE
+            $where_clause = '';
+            if (!empty($where_conditions)) {
+                $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+            }
 
-                // Consultas
-                $total = $wpdb->get_var("SELECT COUNT(id) FROM $table_name_transactions $where_clause");
-                $num_of_pages = ceil( $total / $limit );
-                $rows = $wpdb->get_results("SELECT id, passportNumber, description, invoiceUrl, completeName, reservationID, transactionDateTime, amount, transactionType FROM $table_name_transactions $where_clause ORDER BY id DESC LIMIT $offset, $limit");
+            // Consultas
+            $total = $wpdb->get_var("SELECT COUNT(id) FROM $table_name_transactions $where_clause");
+            $num_of_pages = ceil($total / $limit);
+            $rows = $wpdb->get_results("SELECT id, passportNumber, description, invoiceUrl, completeName, reservationID, transactionDateTime, amount, transactionType FROM $table_name_transactions $where_clause ORDER BY id DESC LIMIT $offset, $limit");
 
-                $page_links = paginate_links( array(
-                    'base' => add_query_arg( 'pagenum', '%#%' ),
-                    'format' => '',
-                    'prev_text' => __( '&laquo;', 'text-domain' ),
-                    'next_text' => __( '&raquo;', 'text-domain' ),
-                    'total' => $num_of_pages,
-                    'current' => $pagenum
-                ) );
+            $page_links = paginate_links(array(
+                'base' => add_query_arg('pagenum', '%#%'),
+                'format' => '',
+                'prev_text' => __('&laquo;', 'text-domain'),
+                'next_text' => __('&raquo;', 'text-domain'),
+                'total' => $num_of_pages,
+                'current' => $pagenum
+            ));
 
             ?>
             <!--<table class='wp-list-table widefat fixed striped posts'>-->
             <!--    <tr>-->
-                    <!--<th class="manage-column ss-list-width"><b>ID</b></th>-->
+            <!--<th class="manage-column ss-list-width"><b>ID</b></th>-->
             <!--        <th class="manage-column ss-list-width"><b>Documento de la Persona</b></th>-->
             <!--        <th class="manage-column ss-list-width"><b>Huésped</b></th>-->
             <!--        <th class="manage-column ss-list-width"><b>Nro. Reserva</b></th>-->
@@ -322,28 +360,28 @@ function transactions_list() {
             <!--    </tr>-->
             <!--    <?php foreach ($rows as $row) { ?>-->
             <!--        <tr>-->
-                        <!--<td class="manage-column ss-list-width"><?php echo $row->id; ?></td>-->
+            <!--<td class="manage-column ss-list-width"><?php echo $row->id; ?></td>-->
             <!--            <td class="manage-column ss-list-width"><?php echo $row->passportNumber; ?></td>-->
             <!--            <td class="manage-column ss-list-width"><?php echo $row->completeName; ?></td>-->
             <!--            <td class="manage-column ss-list-width"><?php echo $row->reservationID; ?></td>-->
             <!--            <td class="manage-column ss-list-width"><?php echo $row->transactionDateTime; ?></td>-->
             <!--            <td class="manage-column ss-list-width"><?php echo $row->amount; ?></td>-->
             <!--            <td class="manage-column ss-list-width"><?php echo $row->description; ?></td>-->
-            <!--            <?php if(CheckNumber($row->amount) == 'Negative'){ ?></td>-->
+            <!--            <?php if (CheckNumber($row->amount) == 'Negative') { ?></td>-->
 
             <!--                <td>-->
             <!--                    Monto Negativo-->
             <!--                </td>-->
 
-            <!--            <?php }else{ ?></td>-->
+            <!--            <?php } else { ?></td>-->
 
-            <!--                <?php if($row->invoiceUrl != NULL){ ?></td>-->
+            <!--                <?php if ($row->invoiceUrl != NULL) { ?></td>-->
 
             <!--                    <td>-->
             <!--                        <button style="color: #22b162;border-color: #22b162;" type="button" onclick="genFacturar(<?php echo $row->id; ?>);" class="button button-secondary" id="<?php echo $row->id; ?>">Descargar</button>-->
             <!--                    </td>-->
 
-            <!--                <?php }else{ ?></td>-->
+            <!--                <?php } else { ?></td>-->
 
             <!--                    <div style="display: inline-flex;gap: 4px;"> -->
             <!--                        <button type="button" onclick="editModal(<?php echo $row->id; ?>);" class="button button-secondary" id="editar">Editar</button>-->
@@ -356,7 +394,7 @@ function transactions_list() {
             <!--        </tr>-->
             <!--    <?php } ?>-->
             <!--</table>-->
-            
+
             <table class='wp-list-table widefat fixed striped posts'>
                 <tr>
                     <th class="manage-column ss-list-width"><b>Documento de la Persona</b></th>
@@ -383,10 +421,10 @@ function transactions_list() {
                             <td class="manage-column ss-list-width"><?php echo $row->amount; ?></td>
                             <td class="manage-column ss-list-width"><?php echo $row->description; ?></td>
                             <td class="manage-column ss-list-width">
-                                <?php if(CheckNumber($row->amount) == 'Negative') { ?>
+                                <?php if (CheckNumber($row->amount) == 'Negative') { ?>
                                     Monto Negativo
                                 <?php } else { ?>
-                                    <?php if($row->invoiceUrl != NULL) { ?>
+                                    <?php if ($row->invoiceUrl != NULL) { ?>
                                         <button style="color: #22b162;border-color: #22b162;" type="button" onclick="genFacturar(<?php echo $row->id; ?>);" class="button button-secondary" id="<?php echo $row->id; ?>">Descargar</button>
                                     <?php } else { ?>
                                         <div style="display: inline-flex; gap: 4px;">
@@ -405,7 +443,8 @@ function transactions_list() {
                 <div class="modal-content">
                     <h3 class="modal-title">Cambiar monto</h3>
                     <div class="modal-body">
-                        <input type="number" value="0" class="modal-input" id="montoInput"> </div>
+                        <input type="number" value="0" class="modal-input" id="montoInput">
+                    </div>
                     <div class="modal-actions">
                         <button type="button" class="button button-tertiary" onclick="closeModal()">Cancelar</button>
                         <button type="button" class="button button-primary" onclick="guardarMonto()">Guardar</button>
@@ -431,9 +470,9 @@ function transactions_list() {
                 </div>
             </div>
             <?php
-                if ( $page_links ) {
+            if ($page_links) {
                 echo '<div class="tablenav"><div class="tablenav-pages" style="margin: 1em 0">' . $page_links . '</div></div>';
-                }
+            }
             ?>
         </div>
     </body>
@@ -533,39 +572,39 @@ function transactions_list() {
         }
     </script>
 
-    <?php if($code_auth == null){ ?>
+    <?php if ($code_auth == null) { ?>
         <script type="text/javascript">
-        jQuery(document).ready(function($){
-        
-            initAuthCodeFunctionToken();
-            
-        });
+            jQuery(document).ready(function($) {
+
+                initAuthCodeFunctionToken();
+
+            });
         </script>
-    <?php }else{ ?>
+    <?php } else { ?>
 
-        <?php if(isset($_GET['code'])){ ?>
-
-            <script type="text/javascript">
-            jQuery(document).ready(function($){
-            
-                initLoadRecordsTransactions();
-                
-            });
-            </script>
-
-        <?php }else{ ?>
+        <?php if (isset($_GET['code'])) { ?>
 
             <script type="text/javascript">
-            jQuery(document).ready(function($){
-            
-                checkGetTransactionsNow();
-                
-            });
+                jQuery(document).ready(function($) {
+
+                    initLoadRecordsTransactions();
+
+                });
             </script>
 
-        <?php } ?>           
+        <?php } else { ?>
+
+            <script type="text/javascript">
+                jQuery(document).ready(function($) {
+
+                    checkGetTransactionsNow();
+
+                });
+            </script>
+
+        <?php } ?>
 
     <?php } ?>
-    
+
 <?php
 }
