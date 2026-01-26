@@ -51,7 +51,6 @@ function transactions_list() {
                     array('%s'), //data format
                     array('%s') //where format
             );
-
             if($data_update){
 
                 // $resource = getTransactions($access_token);
@@ -66,10 +65,8 @@ function transactions_list() {
                 // }
 
             }
-
-
         }
-    
+
     }else{
 
         if($refresh_token_global != null){
@@ -105,6 +102,81 @@ function transactions_list() {
     
 ?>
 
+    <style>
+        /* MODAL FACTURA */
+        #facturaModal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.75);
+            z-index: 99999;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow: auto;
+        }
+        #facturaModal.active {
+            display: flex !important;
+        }
+        #facturaModal .modal-content {
+            background: #fff;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 12px 40px rgba(0, 0, 0, 0.25);
+            animation: modalPop 0.3s ease-out;
+            position: relative;
+            margin: auto;
+        }
+        @keyframes modalPop {
+            from { opacity: 0; transform: scale(0.9) translateY(-20px); }
+            to { opacity: 1; transform: scale(1) translateY(0); }
+        }
+        #facturaModal .modal-title {
+            margin: 0 0 16px 0;
+            font-size: 19px;
+            font-weight: 600;
+            text-align: center;
+            color: #1d2327;
+        }
+        #facturaModal #btn-fb,
+        #facturaModal #btn-ft {
+            flex: 1;
+            padding: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        #facturaModal #btn-fb {
+            background: #0073aa;
+            color: white;
+        }
+        #facturaModal #btn-fb:hover {
+            background: #005a87;
+            transform: translateY(-1px);
+        }
+        #facturaModal #btn-ft {
+            background: #d63638;
+            color: white;
+        }
+        #facturaModal #btn-ft:hover {
+            background: #b32d2e;
+            transform: translateY(-1px);
+        }
+        #facturaModal .modal-actions {
+            margin-top: 20px;
+            text-align: right;
+        }
+    </style>
+
     <body>
         <div class="wrap">
             <div id="overlay" style="display:none;">
@@ -128,14 +200,11 @@ function transactions_list() {
 
                             <?php if($_GET['resultsFrom'] != ''){ ?>
 
+                                <label><b>TIPO DE PAGO</b></label>
                                 <select name="search_metpago" id="search_metpago" class="form-control">
-                                    <?php if($_GET['metpago'] == 'debit'){ ?>
-                                        <option value="debit" selected>D&eacute;bito</option>
-                                        <option value="credit">Cr&eacute;dito</option>
-                                    <?php }else{ ?>
-                                        <option value="debit">D&eacute;bito</option>
-                                        <option value="credit" selected>Cr&eacute;dito</option>
-                                    <?php } ?>
+                                    <option value="all" <?php echo ($_GET['metpago'] == 'all' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Ambos</option>
+                                    <option value="credit" <?php echo ($_GET['metpago'] == 'credit') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
+                                    <option value="debit" <?php echo ($_GET['metpago'] == 'debit') ? 'selected' : ''; ?>>D&eacute;bito</option>
                                 </select>
                                 <label><b>DESDE</b></label>
                                 <input type="date" value="<?php echo date('Y-m-d', strtotime($_GET['resultsFrom'])) ?>" placeholder="Buscar por transoper.." name="search_desde" id="search_desde">
@@ -146,14 +215,11 @@ function transactions_list() {
 
                             <?php }else{ ?>
 
+                                <label><b>TIPO DE PAGO</b></label>
                                 <select name="search_metpago" id="search_metpago" class="form-control">
-                                    <?php if($_GET['metpago'] == 'debit'){ ?>
-                                        <option value="debit" selected>D&eacute;bito</option>
-                                        <option value="credit">Cr&eacute;dito</option>
-                                    <?php }else{ ?>
-                                        <option value="debit">D&eacute;bito</option>
-                                        <option value="credit" selected>Cr&eacute;dito</option>
-                                    <?php } ?>
+                                    <option value="all" <?php echo ($_GET['metpago'] == 'all' || $_GET['metpago'] == '') ? 'selected' : ''; ?>>Ambos</option>
+                                    <option value="credit" <?php echo ($_GET['metpago'] == 'credit') ? 'selected' : ''; ?>>Cr&eacute;dito</option>
+                                    <option value="debit" <?php echo ($_GET['metpago'] == 'debit') ? 'selected' : ''; ?>>D&eacute;bito</option>
                                 </select>
                                 <label><b>DESDE</b></label>
                                 <input type="date" placeholder="Buscar por transoper.." name="search_desde" id="search_desde">
@@ -165,9 +231,11 @@ function transactions_list() {
                             <?php } ?>
 
                         <?php }else{ ?>
+                            <label><b>TIPO DE PAGO</b></label>
                             <select name="search_metpago" id="search_metpago" class="form-control">
+                                <option value="all" selected>Ambos</option>
+                                <option value="credit">Cr&eacute;dito</option>
                                 <option value="debit">D&eacute;bito</option>
-                                <option value="credit" selected>Cr&eacute;dito</option>
                             </select>
                             <label><b>DESDE</b></label>
                             <input type="date" placeholder="Buscar por transoper.." name="search_desde" id="search_desde">
@@ -189,126 +257,56 @@ function transactions_list() {
                 $limit = 20; // number of rows in page
                 $offset = ( $pagenum - 1 ) * $limit;
 
-                if(isset($_POST['search_desde'])){
+                // Obtener valores de filtros (GET tiene prioridad sobre POST)
+                $datefrom = isset($_GET['resultsFrom']) ? sanitize_text_field($_GET['resultsFrom']) : '';
+                $dateto = isset($_GET['resultsTo']) ? sanitize_text_field($_GET['resultsTo']) : '';
+                $reservationID = isset($_GET['reservationID']) ? sanitize_text_field($_GET['reservationID']) : '';
+                $metpago = isset($_GET['metpago']) ? sanitize_text_field($_GET['metpago']) : 'all';
 
-                    $desde = $_POST['search_desde'];
-                    $hasta = $_POST['search_hasta'];
-                    $reservaid = $_POST['search_reservaid'];
-                    $metpago = $_POST['search_metpago'];
+                // Construir WHERE dinámico
+                $where_conditions = array();
 
-                    $total = $wpdb->get_var( "SELECT COUNT(id) FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') between '$desde' and '$hasta' and reservationID = '$reservaid' and transactionType = '$metpago'");
-                    $num_of_pages = ceil( $total / $limit );
-                    $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') between '$desde' and '$hasta' and reservationID = '$reservaid' and transactionType = '$metpago' ORDER BY id DESC LIMIT $offset, $limit");
-                    $page_links = paginate_links( array(
+                // Filtro por fechas
+                if (!empty($datefrom) && !empty($dateto)) {
+                    $where_conditions[] = $wpdb->prepare(
+                        "DATE_FORMAT(transactionDateTime, '%%Y-%%m-%%d') BETWEEN %s AND %s",
+                        $datefrom,
+                        $dateto
+                    );
+                } elseif (empty($datefrom) && empty($dateto) && empty($reservationID)) {
+                    // Sin fechas ni reserva: mostrar solo fecha actual
+                    $where_conditions[] = "DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE()";
+                }
+
+                // Filtro por reservationID
+                if (!empty($reservationID)) {
+                    $where_conditions[] = $wpdb->prepare("reservationID = %s", $reservationID);
+                }
+
+                // Filtro por tipo de pago (solo si no es "all")
+                if (!empty($metpago) && $metpago !== 'all') {
+                    $where_conditions[] = $wpdb->prepare("transactionType = %s", $metpago);
+                }
+
+                // Construir la cláusula WHERE
+                $where_clause = '';
+                if (!empty($where_conditions)) {
+                    $where_clause = 'WHERE ' . implode(' AND ', $where_conditions);
+                }
+
+                // Consultas
+                $total = $wpdb->get_var("SELECT COUNT(id) FROM $table_name_transactions $where_clause");
+                $num_of_pages = ceil( $total / $limit );
+                $rows = $wpdb->get_results("SELECT id, passportNumber, description, invoiceUrl, completeName, reservationID, transactionDateTime, amount, transactionType FROM $table_name_transactions $where_clause ORDER BY id DESC LIMIT $offset, $limit");
+
+                $page_links = paginate_links( array(
                     'base' => add_query_arg( 'pagenum', '%#%' ),
                     'format' => '',
                     'prev_text' => __( '&laquo;', 'text-domain' ),
                     'next_text' => __( '&raquo;', 'text-domain' ),
                     'total' => $num_of_pages,
                     'current' => $pagenum
-                    ) );
-
-                }else{
-
-                    if(isset($_GET['resultsFrom'])){
-
-                        $datefrom = $_GET['resultsFrom'];
-                        $dateto = $_GET['resultsTo'];
-                        $reservationID = $_GET['reservationID'];
-                        $metpago = $_GET['metpago'];
-
-                        //search
-                        if (isset($_POST['search'])) {//si hay busqueda por numero de transoper
-
-                            $toper = $_POST["search"];
-
-                            if($datefrom == '' && $dateto == '' && $reservationID != '' && $metpago != ''){
-                                $total = $wpdb->get_var( "SELECT COUNT(id) FROM $table_name_transactions WHERE reservationID = '$reservationID' and transactionType = '$metpago' ");
-                                $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType from $table_name_transactions WHERE reservationID = '$reservationID' and transactionType = '$metpago' ");
-                            }elseif($datefrom != '' && $dateto != '' && $reservationID == '' && $metpago != ''){
-                                $total = $wpdb->get_var( "SELECT COUNT(id), DATE_FORMAT(transactionDateTime, '%Y-%m-%d') FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') between '$datefrom' and '$dateto' and transactionType = '$metpago'");
-                                $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') between '$datefrom' and '$dateto' and transactionType = '$metpago'");    
-                            }elseif($datefrom == '' && $dateto == '' && $reservationID == '' && $metpago != ''){
-                                $total = $wpdb->get_var( "SELECT COUNT(id), DATE_FORMAT(transactionDateTime, '%Y-%m-%d') FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = '$metpago'");
-                                $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = '$metpago'");    
-                            }else{
-
-                            }
-
-                            $num_of_pages = ceil( $total / $limit );
-                            $page_links = paginate_links( array(
-                            'base' => add_query_arg( 'pagenum', '%#%' ),
-                            'format' => '',
-                            'prev_text' => __( '&laquo;', 'text-domain' ),
-                            'next_text' => __( '&raquo;', 'text-domain' ),
-                            'total' => $num_of_pages,
-                            'current' => $pagenum
-                            ) );
-
-                        }else{//sino hay ninguna busqueda
-
-                            if($datefrom == '' && $dateto == '' && $reservationID != ''  && $metpago != ''){
-                                $total = $wpdb->get_var( "SELECT COUNT(id) FROM $table_name_transactions WHERE reservationID = '$reservationID' and transactionType = '$metpago' ");
-                                $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType from $table_name_transactions WHERE reservationID = '$reservationID' and transactionType = '$metpago' ");
-                            }elseif($datefrom != '' && $dateto != '' && $reservationID == ''  && $metpago != ''){
-                                $total = $wpdb->get_var( "SELECT COUNT(id), DATE_FORMAT(transactionDateTime, '%Y-%m-%d') FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') between '$datefrom' and '$dateto' and transactionType = '$metpago'");
-                                $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') between '$datefrom' and '$dateto' and transactionType = '$metpago' ORDER BY id DESC LIMIT $offset, $limit");    
-                            }elseif($datefrom == '' && $dateto == '' && $reservationID == '' && $metpago != ''){
-                                $total = $wpdb->get_var( "SELECT COUNT(id), DATE_FORMAT(transactionDateTime, '%Y-%m-%d') FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = '$metpago'");
-                                $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = '$metpago'");    
-                            }else{
-
-                            }
-
-                            $num_of_pages = ceil( $total / $limit );
-                            $page_links = paginate_links( array(
-                            'base' => add_query_arg( 'pagenum', '%#%' ),
-                            'format' => '',
-                            'prev_text' => __( '&laquo;', 'text-domain' ),
-                            'next_text' => __( '&raquo;', 'text-domain' ),
-                            'total' => $num_of_pages,
-                            'current' => $pagenum
-                            ) );
-
-                        }
-
-
-                    }else{
-                        //search
-                        if (isset($_POST['search'])) {//si hay busqueda por numero de transoper
-
-                            $toper = $_POST["search"];
-
-                            $total = $wpdb->get_var( "SELECT COUNT(id), DATE_FORMAT(transactionDateTime, '%Y-%m-%d') FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = 'credit'");
-                            $num_of_pages = ceil( $total / $limit );
-                            $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = 'credit'");
-                            $page_links = paginate_links( array(
-                            'base' => add_query_arg( 'pagenum', '%#%' ),
-                            'format' => '',
-                            'prev_text' => __( '&laquo;', 'text-domain' ),
-                            'next_text' => __( '&raquo;', 'text-domain' ),
-                            'total' => $num_of_pages,
-                            'current' => $pagenum
-                            ) );
-
-                        }else{//sino hay ninguna busqueda
-
-                            $total = $wpdb->get_var( "SELECT COUNT(id) FROM $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = 'credit'");
-                            $num_of_pages = ceil( $total / $limit );
-                            $rows = $wpdb->get_results("SELECT id,passportNumber,description,invoiceUrl,completeName,reservationID,transactionDateTime,amount,transactionType, DATE_FORMAT(transactionDateTime, '%Y-%m-%d') from $table_name_transactions WHERE DATE_FORMAT(transactionDateTime, '%Y-%m-%d') = CURDATE() and transactionType = 'credit' ORDER BY id DESC LIMIT $offset, $limit");
-                            $page_links = paginate_links( array(
-                            'base' => add_query_arg( 'pagenum', '%#%' ),
-                            'format' => '',
-                            'prev_text' => __( '&laquo;', 'text-domain' ),
-                            'next_text' => __( '&raquo;', 'text-domain' ),
-                            'total' => $num_of_pages,
-                            'current' => $pagenum
-                            ) );
-
-                        }
-                    }
-
-                }
+                ) );
 
             ?>
             <!--<table class='wp-list-table widefat fixed striped posts'>-->
@@ -369,29 +367,38 @@ function transactions_list() {
                     <th class="manage-column ss-list-width"><b>Descripci&oacute;n</b></th>
                     <th class="manage-column ss-list-width"><b>Acciones</b></th>
                 </tr>
-                <?php foreach ($rows as $row) { ?>
+                <?php if (empty($rows)) { ?>
                     <tr>
-                        <td class="manage-column ss-list-width"><?php echo $row->passportNumber; ?></td>
-                        <td class="manage-column ss-list-width"><?php echo $row->completeName; ?></td>
-                        <td class="manage-column ss-list-width"><?php echo $row->reservationID; ?></td>
-                        <td class="manage-column ss-list-width"><?php echo $row->transactionDateTime; ?></td>
-                        <td class="manage-column ss-list-width"><?php echo $row->amount; ?></td>
-                        <td class="manage-column ss-list-width"><?php echo $row->description; ?></td>
-                        <td class="manage-column ss-list-width">
-                            <?php if(CheckNumber($row->amount) == 'Negative') { ?>
-                                Monto Negativo
-                            <?php } else { ?>
-                                <?php if($row->invoiceUrl != NULL) { ?>
-                                    <button style="color: #22b162;border-color: #22b162;" type="button" onclick="genFacturar(<?php echo $row->id; ?>);" class="button button-secondary" id="<?php echo $row->id; ?>">Descargar</button>
-                                <?php } else { ?>
-                                    <div style="display: inline-flex; gap: 4px;">
-                                        <button type="button" onclick="editModal(<?php echo $row->id; ?>);" class="button button-secondary" id="editar">Editar</button>
-                                        <button type="button" onclick="genFacturar(<?php echo $row->id; ?>);" class="button button-secondary" id="<?php echo $row->id; ?>">FB</button>
-                                    </div>
-                                <?php } ?>
-                            <?php } ?>
+                        <td colspan="7" style="text-align: center; padding: 20px; color: #666;">
+                            No se encontraron transacciones con los filtros seleccionados.
                         </td>
                     </tr>
+                <?php } else { ?>
+                    <?php foreach ($rows as $row) { ?>
+                        <tr>
+                            <td class="manage-column ss-list-width"><?php echo $row->passportNumber; ?></td>
+                            <td class="manage-column ss-list-width"><?php echo $row->completeName; ?></td>
+                            <td class="manage-column ss-list-width"><?php echo $row->reservationID; ?></td>
+                            <td class="manage-column ss-list-width"><?php echo $row->transactionDateTime; ?></td>
+                            <td class="manage-column ss-list-width"><?php echo $row->amount; ?></td>
+                            <td class="manage-column ss-list-width"><?php echo $row->description; ?></td>
+                            <td class="manage-column ss-list-width">
+                                <?php if(CheckNumber($row->amount) == 'Negative') { ?>
+                                    Monto Negativo
+                                <?php } else { ?>
+                                    <?php if($row->invoiceUrl != NULL) { ?>
+                                        <button style="color: #22b162;border-color: #22b162;" type="button" onclick="genFacturar(<?php echo $row->id; ?>);" class="button button-secondary" id="<?php echo $row->id; ?>">Descargar</button>
+                                    <?php } else { ?>
+                                        <div style="display: inline-flex; gap: 4px;">
+                                            <button type="button" onclick="editModal(<?php echo $row->id; ?>);" class="button button-secondary">Editar</button>
+                                            <button type="button" onclick="openFacturaModal(<?php echo $row->id; ?>, '<?php echo esc_js($row->passportNumber ?? ''); ?>');" class="button button-primary">Facturar</button>
+                                            <button type="button" onclick="syncTransaction(<?php echo $row->id; ?>);" class="button" style="background:#f0f0f1;" title="Sincronizar con CloudBeds">&#x21bb;</button>
+                                        </div>
+                                    <?php } ?>
+                                <?php } ?>
+                            </td>
+                        </tr>
+                    <?php } ?>
                 <?php } ?>
             </table>
             <div id="editModal" class="modal-overlay" data-current-id="">
@@ -405,6 +412,24 @@ function transactions_list() {
                     </div>
                 </div>
             </div>
+
+            <!-- Modal para elegir tipo de factura -->
+            <div id="facturaModal">
+                <div class="modal-content">
+                    <h3 class="modal-title">Generar Factura</h3>
+                    <div class="modal-body">
+                        <p><strong>Transacci&oacute;n ID:</strong> <span id="modal-transaction-id" style="font-weight: bold; color: #0073aa;">-</span></p>
+                        <p style="margin: 16px 0 8px; font-weight: 600;">Seleccione el tipo de factura:</p>
+                        <div style="display: flex; gap: 12px;">
+                            <button type="button" id="btn-fb" class="button">FB (Factura B)</button>
+                            <button type="button" id="btn-ft" class="button">FT (Factura T)</button>
+                        </div>
+                    </div>
+                    <div class="modal-actions">
+                        <button type="button" class="button button-tertiary" onclick="closeFacturaModal()">Cancelar</button>
+                    </div>
+                </div>
+            </div>
             <?php
                 if ( $page_links ) {
                 echo '<div class="tablenav"><div class="tablenav-pages" style="margin: 1em 0">' . $page_links . '</div></div>';
@@ -412,7 +437,102 @@ function transactions_list() {
             ?>
         </div>
     </body>
-    
+
+    <script type="text/javascript">
+        let currentTransactionId = null;
+
+        function openFacturaModal(id, passportNumber) {
+            currentTransactionId = id;
+            document.getElementById('modal-transaction-id').textContent = id;
+
+            const modal = document.getElementById('facturaModal');
+            modal.classList.add('active');
+            document.body.style.overflow = 'hidden';
+
+            // Verificar si tiene documento para Factura T
+            const hasDocument = passportNumber && passportNumber.trim() !== '';
+
+            // Reasignar eventos (evita duplicados)
+            const btnFb = document.getElementById('btn-fb');
+            const btnFt = document.getElementById('btn-ft');
+
+            // Clonar para limpiar eventos previos
+            const newFb = btnFb.cloneNode(true);
+            const newFt = btnFt.cloneNode(true);
+            btnFb.parentNode.replaceChild(newFb, btnFb);
+            btnFt.parentNode.replaceChild(newFt, btnFt);
+
+            newFb.onclick = () => {
+                closeFacturaModal();
+                genFacturar(id);
+            };
+
+            // Habilitar/deshabilitar botón FT según documento
+            if (hasDocument) {
+                newFt.disabled = false;
+                newFt.style.opacity = '1';
+                newFt.style.cursor = 'pointer';
+                newFt.title = '';
+                newFt.onclick = () => {
+                    closeFacturaModal();
+                    genFacturarT(id);
+                };
+            } else {
+                newFt.disabled = true;
+                newFt.style.opacity = '0.5';
+                newFt.style.cursor = 'not-allowed';
+                newFt.title = 'Requiere documento/pasaporte para Factura T';
+                newFt.onclick = null;
+            }
+        }
+
+        function closeFacturaModal() {
+            const modal = document.getElementById('facturaModal');
+            modal.classList.remove('active');
+            document.body.style.overflow = 'auto';
+            currentTransactionId = null;
+        }
+
+        // Cerrar al hacer clic fuera
+        document.getElementById('facturaModal').addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeFacturaModal();
+            }
+        });
+
+        function syncTransaction(id) {
+            if (!confirm('¿Sincronizar datos de esta transacción con CloudBeds?')) {
+                return;
+            }
+
+            // Mostrar overlay de carga
+            jQuery('#overlay').show();
+
+            jQuery.ajax({
+                url: '<?php echo admin_url('admin-ajax.php'); ?>',
+                type: 'POST',
+                data: {
+                    action: 'foo',
+                    sync_transaction: 1,
+                    transaction_id: id
+                },
+                success: function(response) {
+                    jQuery('#overlay').hide();
+                    if (response.success) {
+                        alert('Transacción sincronizada correctamente.');
+                        window.location.reload();
+                    } else {
+                        alert('Error: ' + (response.data?.message || 'Error desconocido'));
+                    }
+                },
+                error: function(xhr, status, error) {
+                    jQuery('#overlay').hide();
+                    alert('Error de conexión: ' + error);
+                }
+            });
+        }
+    </script>
+
     <?php if($code_auth == null){ ?>
         <script type="text/javascript">
         jQuery(document).ready(function($){
