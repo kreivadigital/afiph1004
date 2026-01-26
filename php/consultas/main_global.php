@@ -64,8 +64,348 @@ define("URL_WEB_FILES", $plugin_base_url . 'php/invoicesxml/');
 define("URL_WEB_FILES_PDF", $plugin_base_url . 'php/invoicespdf/');
 define("URL_WEB_FILES_QR", $plugin_base_url);
 
+// =============================================================================
+// FUNCIONES HELPER PARA ALMACENAMIENTO DE PDFs Y XMLs EN UPLOADS
+// =============================================================================
+
+/**
+ * Obtener directorio base de uploads para el plugin
+ * @return string Path absoluto al directorio uploads/hotels/
+ */
+function get_hotels_upload_dir() {
+    $upload_dir = wp_upload_dir();
+    return trailingslashit($upload_dir['basedir']) . 'hotels/';
+}
+
+/**
+ * Obtener URL base de uploads para el plugin
+ * @return string URL al directorio uploads/hotels/
+ */
+function get_hotels_upload_url() {
+    $upload_dir = wp_upload_dir();
+    return trailingslashit($upload_dir['baseurl']) . 'hotels/';
+}
+
+/**
+ * Crear directorios de uploads si no existen (PDFs y XMLs)
+ * @return bool True si los directorios existen o fueron creados
+ */
+function ensure_hotels_upload_dirs() {
+    $base = get_hotels_upload_dir();
+    $dirs = [
+        $base,
+        $base . 'invoicespdf/',
+        $base . 'invoicespdft/',
+        $base . 'invoicesxml/',
+        $base . 'invoicesxmlt/',
+    ];
+
+    foreach ($dirs as $dir) {
+        if (!file_exists($dir)) {
+            wp_mkdir_p($dir);
+            // Crear .htaccess para proteger archivos
+            $htaccess = $dir . '.htaccess';
+            if (!file_exists($htaccess)) {
+                @file_put_contents($htaccess, "Options -Indexes\n");
+            }
+        }
+    }
+    return true;
+}
+
+/**
+ * Buscar PDF con fallback: legacy (plugin) -> uploads
+ * @param string $filename Nombre del archivo (sin path)
+ * @param string $type 'B' o 'T'
+ * @return array ['path' => string, 'url' => string, 'location' => 'legacy'|'uploads'|'not_found']
+ */
+function find_pdf_file($filename, $type = 'B') {
+    $upload_dir = get_hotels_upload_dir();
+    $upload_url = get_hotels_upload_url();
+    $plugin_path = plugin_dir_path(__FILE__) . '../';
+    $plugin_url = plugin_dir_url(__FILE__) . '../';
+
+    // Definir carpetas según tipo
+    if ($type === 'T') {
+        $upload_folder = 'invoicespdft/';
+        $legacy_folder = 'invoicespdft/';
+    } else {
+        $upload_folder = 'invoicespdf/';
+        $legacy_folder = 'invoicespdf/';
+    }
+
+    // Limpiar filename - remover cualquier prefijo de carpeta
+    $filename = basename($filename);
+
+    // 1. Buscar en legacy (plugin) primero - para PDFs existentes
+    $legacy_path = $plugin_path . $legacy_folder . $filename;
+    if (file_exists($legacy_path)) {
+        return [
+            'path' => $legacy_path,
+            'url' => $plugin_url . $legacy_folder . $filename,
+            'location' => 'legacy'
+        ];
+    }
+
+    // 2. Buscar en uploads (nuevo)
+    $upload_path = $upload_dir . $upload_folder . $filename;
+    if (file_exists($upload_path)) {
+        return [
+            'path' => $upload_path,
+            'url' => $upload_url . $upload_folder . $filename,
+            'location' => 'uploads'
+        ];
+    }
+
+    // No encontrado - retornar path esperado en uploads
+    return [
+        'path' => $upload_path,
+        'url' => $upload_url . $upload_folder . $filename,
+        'location' => 'not_found'
+    ];
+}
+
+/**
+ * Obtener path para guardar nuevo PDF
+ * @param string $filename Nombre del archivo
+ * @param string $type 'B' o 'T'
+ * @return string Path completo donde guardar el PDF
+ */
+function get_pdf_save_path($filename, $type = 'B') {
+    ensure_hotels_upload_dirs();
+    $upload_dir = get_hotels_upload_dir();
+    $folder = ($type === 'T') ? 'invoicespdft/' : 'invoicespdf/';
+    return $upload_dir . $folder . $filename;
+}
+
+/**
+ * Obtener URL para nuevo PDF guardado en uploads
+ * @param string $filename Nombre del archivo
+ * @param string $type 'B' o 'T'
+ * @return string URL del PDF
+ */
+function get_pdf_url($filename, $type = 'B') {
+    $upload_url = get_hotels_upload_url();
+    $folder = ($type === 'T') ? 'invoicespdft/' : 'invoicespdf/';
+    return $upload_url . $folder . $filename;
+}
+
+/**
+ * Buscar XML con fallback: legacy (plugin) -> uploads
+ * @param string $filename Nombre del archivo (sin path, ej: transactionID.xml)
+ * @param string $type 'B' o 'T'
+ * @return array ['path' => string, 'url' => string, 'location' => 'legacy'|'uploads'|'not_found']
+ */
+function find_xml_file($filename, $type = 'B') {
+    $upload_dir = get_hotels_upload_dir();
+    $upload_url = get_hotels_upload_url();
+    $plugin_path = plugin_dir_path(__FILE__) . '../';
+    $plugin_url = plugin_dir_url(__FILE__) . '../';
+
+    // Definir carpetas según tipo
+    if ($type === 'T') {
+        $upload_folder = 'invoicesxmlt/';
+        $legacy_folder = 'invoicesxmlt/';
+    } else {
+        $upload_folder = 'invoicesxml/';
+        $legacy_folder = 'invoicesxml/';
+    }
+
+    // Limpiar filename
+    $filename = basename($filename);
+
+    // 1. Buscar en legacy (plugin) primero - para XMLs existentes
+    $legacy_path = $plugin_path . $legacy_folder . $filename;
+    if (file_exists($legacy_path)) {
+        return [
+            'path' => $legacy_path,
+            'url' => $plugin_url . $legacy_folder . $filename,
+            'location' => 'legacy'
+        ];
+    }
+
+    // 2. Buscar en uploads (nuevo)
+    $upload_path = $upload_dir . $upload_folder . $filename;
+    if (file_exists($upload_path)) {
+        return [
+            'path' => $upload_path,
+            'url' => $upload_url . $upload_folder . $filename,
+            'location' => 'uploads'
+        ];
+    }
+
+    // No encontrado - retornar path esperado en uploads
+    return [
+        'path' => $upload_path,
+        'url' => $upload_url . $upload_folder . $filename,
+        'location' => 'not_found'
+    ];
+}
+
+/**
+ * Obtener path para guardar nuevo XML
+ * @param string $filename Nombre del archivo (ej: transactionID.xml)
+ * @param string $type 'B' o 'T'
+ * @return string Path completo donde guardar el XML
+ */
+function get_xml_save_path($filename, $type = 'B') {
+    ensure_hotels_upload_dirs();
+    $upload_dir = get_hotels_upload_dir();
+    $folder = ($type === 'T') ? 'invoicesxmlt/' : 'invoicesxml/';
+    return $upload_dir . $folder . $filename;
+}
+
+/**
+ * Obtener URL para XML guardado en uploads
+ * @param string $filename Nombre del archivo
+ * @param string $type 'B' o 'T'
+ * @return string URL del XML
+ */
+function get_xml_url($filename, $type = 'B') {
+    $upload_url = get_hotels_upload_url();
+    $folder = ($type === 'T') ? 'invoicesxmlt/' : 'invoicesxml/';
+    return $upload_url . $folder . $filename;
+}
+
+// =============================================================================
+// FIN FUNCIONES HELPER UPLOADS
+// =============================================================================
+
+// =============================================================================
+// FUNCIONES HELPER FORMATEO PDF
+// =============================================================================
+
+/**
+ * Limpia la descripcion del servicio para el PDF
+ * - Quita el texto entre parentesis (BOOKING. ...) o similar
+ * - Capitaliza "alojamiento" a "Alojamiento"
+ *
+ * @param string $description Descripcion original
+ * @return string Descripcion limpia
+ */
+function clean_service_description($description) {
+    // Quitar texto entre parentesis que contenga BOOKING
+    $cleaned = preg_replace('/\s*\([^)]*BOOKING[^)]*\)/i', '', $description);
+
+    // Quitar cualquier parentesis vacio que pueda quedar
+    $cleaned = preg_replace('/\s*\(\s*\)/', '', $cleaned);
+
+    // Capitalizar "alojamiento" a "Alojamiento"
+    $cleaned = str_ireplace('alojamiento', 'Alojamiento', $cleaned);
+
+    // Limpiar espacios extra y trim
+    $cleaned = preg_replace('/\s+/', ' ', $cleaned);
+    $cleaned = rtrim(trim($cleaned), ' -');
+
+    return $cleaned;
+}
+
+/**
+ * Convierte un codigo ISO de pais (2 letras) a nombre en español
+ *
+ * @param string $countryCode Codigo ISO o nombre de pais
+ * @return string Nombre del pais en español
+ */
+function get_country_name($countryCode) {
+    $countryCode = trim($countryCode);
+
+    // Si esta vacio, retornar valor por defecto
+    if (empty($countryCode)) {
+        return 'Extranjero';
+    }
+
+    // Mapeo de codigos ISO a nombres en español
+    $countryNames = [
+        'AR' => 'Argentina',
+        'BO' => 'Bolivia',
+        'BR' => 'Brasil',
+        'CA' => 'Canada',
+        'CL' => 'Chile',
+        'CO' => 'Colombia',
+        'CR' => 'Costa Rica',
+        'CU' => 'Cuba',
+        'DO' => 'Republica Dominicana',
+        'EC' => 'Ecuador',
+        'SV' => 'El Salvador',
+        'GT' => 'Guatemala',
+        'HT' => 'Haiti',
+        'HN' => 'Honduras',
+        'JM' => 'Jamaica',
+        'MX' => 'Mexico',
+        'NI' => 'Nicaragua',
+        'PA' => 'Panama',
+        'PY' => 'Paraguay',
+        'PE' => 'Peru',
+        'PR' => 'Puerto Rico',
+        'UY' => 'Uruguay',
+        'US' => 'Estados Unidos',
+        'VE' => 'Venezuela',
+        'DE' => 'Alemania',
+        'AT' => 'Austria',
+        'BE' => 'Belgica',
+        'DK' => 'Dinamarca',
+        'ES' => 'España',
+        'FI' => 'Finlandia',
+        'FR' => 'Francia',
+        'GR' => 'Grecia',
+        'NL' => 'Paises Bajos',
+        'IE' => 'Irlanda',
+        'IT' => 'Italia',
+        'NO' => 'Noruega',
+        'PL' => 'Polonia',
+        'PT' => 'Portugal',
+        'GB' => 'Reino Unido',
+        'UK' => 'Reino Unido',
+        'RO' => 'Rumania',
+        'RU' => 'Rusia',
+        'SE' => 'Suecia',
+        'CH' => 'Suiza',
+        'UA' => 'Ucrania',
+        'CN' => 'China',
+        'KR' => 'Corea del Sur',
+        'PH' => 'Filipinas',
+        'IN' => 'India',
+        'ID' => 'Indonesia',
+        'IL' => 'Israel',
+        'JP' => 'Japon',
+        'MY' => 'Malasia',
+        'PK' => 'Pakistan',
+        'SG' => 'Singapur',
+        'TH' => 'Tailandia',
+        'VN' => 'Vietnam',
+        'AU' => 'Australia',
+        'NZ' => 'Nueva Zelanda',
+        'ZA' => 'Sudafrica',
+        'EG' => 'Egipto',
+        'MA' => 'Marruecos',
+    ];
+
+    // Si tiene mas de 3 caracteres, probablemente ya es un nombre
+    if (strlen($countryCode) > 3) {
+        return $countryCode;
+    }
+
+    // Buscar en el mapeo (case insensitive)
+    $upper = strtoupper($countryCode);
+    if (isset($countryNames[$upper])) {
+        return $countryNames[$upper];
+    }
+
+    // Si no se encuentra, devolver el codigo original
+    return $countryCode;
+}
+
+// =============================================================================
+// FIN FUNCIONES HELPER FORMATEO PDF
+// =============================================================================
+
 function ajax_foo_handler()
 {
+    // Verificar que el usuario tenga permisos de administrador
+    if (!current_user_can('manage_options')) {
+        wp_send_json_error(['message' => 'No tienes permisos para realizar esta acción.'], 403);
+        return;
+    }
 
     global $wpdb, $table_name, $table_name_transactions, $access_token_global;
 
@@ -304,15 +644,56 @@ function ajax_foo_handler()
 
         if ($invoiceUrl != null) {
 
-            //generate pdf
-            $generate_pdf = generatePDF($code, $transactionID);
-            $url_file_web = URL_WEB_FILES_PDF . basename($invoiceUrl);
-            $data_send_pdf = sendPDF($code, $propertyID, $reservationID, $generate_pdf);
+            // PDF ya existe - buscar archivo
+            $filename = basename($invoiceUrl);
 
-            //LOG ID PDF
-            file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdf/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf . "_____ ID DEL PDF: " . $data_send_pdf . PHP_EOL, FILE_APPEND | LOCK_EX);
+            // Detectar tipo basado en path guardado
+            $type = null;
+            if (strpos($invoiceUrl, 'invoicespdft') !== false || strpos($invoiceUrl, 'invoices_t') !== false) {
+                $type = 'T';
+            } elseif (strpos($invoiceUrl, 'invoicespdf') !== false || strpos($invoiceUrl, 'invoices_b') !== false) {
+                $type = 'B';
+            }
 
-            wp_send_json_success(['data' => 'Generado con éxito.', 'name_file' => $invoiceUrl, 'rell' => $url_file_web, 'file_id' => $data_send_pdf]);
+            // Si no se puede determinar tipo por path, buscar en B primero, luego en T
+            if ($type === null) {
+                // Buscar primero en carpeta B
+                $pdf_info_b = find_pdf_file($filename, 'B');
+                if ($pdf_info_b['location'] !== 'not_found') {
+                    $type = 'B';
+                    $pdf_info = $pdf_info_b;
+                } else {
+                    // Si no está en B, buscar en T
+                    $pdf_info_t = find_pdf_file($filename, 'T');
+                    if ($pdf_info_t['location'] !== 'not_found') {
+                        $type = 'T';
+                        $pdf_info = $pdf_info_t;
+                    } else {
+                        // No se encontró en ninguna carpeta
+                        wp_send_json_error(['message' => 'Archivo no encontrado', 'file_not_found' => true]);
+                        return;
+                    }
+                }
+            } else {
+                // Tipo determinado por path, buscar en esa carpeta
+                $pdf_info = find_pdf_file($filename, $type);
+                if ($pdf_info['location'] === 'not_found') {
+                    // Intentar en la otra carpeta como fallback
+                    $other_type = ($type === 'B') ? 'T' : 'B';
+                    $pdf_info = find_pdf_file($filename, $other_type);
+                    if ($pdf_info['location'] !== 'not_found') {
+                        $type = $other_type;
+                    } else {
+                        wp_send_json_error(['message' => 'Archivo no encontrado', 'file_not_found' => true]);
+                        return;
+                    }
+                }
+            }
+
+            $url_file_web = $pdf_info['url'];
+            $tipo_factura = ($type === 'T') ? 'Factura T' : 'Factura B';
+
+            wp_send_json_success(['data' => 'download_existing', 'name_file' => $invoiceUrl, 'rell' => $url_file_web, 'tipo' => $type, 'tipo_nombre' => $tipo_factura]);
         } else {
 
             if ($type_gen == 'NULL') {
@@ -361,10 +742,11 @@ function ajax_foo_handler()
                     }
 
                     //LOG ERROR XML
-                    file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . "_ERROR.xml", $data_fecae);
+                    file_put_contents(get_xml_save_path($transactionID . "_ERROR.xml", 'B'), $data_fecae);
 
                     // Leer request XML para logging
-                    $request_xml_b = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . "_REQUEST.xml");
+                    $xml_request_info = find_xml_file($transactionID . "_REQUEST.xml", 'B');
+                    $request_xml_b = @file_get_contents($xml_request_info['path']);
 
                     // Log Factura B rechazada
                     SAH_Logger::facturaB(
@@ -387,21 +769,22 @@ function ajax_foo_handler()
                     ]);
                 } elseif ($json2_result == 'A') {
 
-                    if (file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . ".xml", $data_fecae)) {
+                    if (file_put_contents(get_xml_save_path($transactionID . ".xml", 'B'), $data_fecae)) {
 
                         //generate pdf
                         $generate_pdf = generatePDF($code, $transactionID);
-                        $url_file_web = URL_WEB_FILES_PDF . basename($generate_pdf);
-                        $data_send_pdf = sendPDF($code, $propertyID, $reservationID, $generate_pdf);
+                        $url_file_web = get_pdf_url($generate_pdf, 'B');
+                        $data_send_pdf = sendPDF($code, $propertyID, $reservationID, $generate_pdf, 'B');
 
                         //LOG ID PDF
                         file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdf/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf . "_____ ID DEL PDF: " . $data_send_pdf . PHP_EOL, FILE_APPEND | LOCK_EX);
 
-                        $save_name_file = saveUrlFile($code, $generate_pdf);
+                        $save_name_file = saveUrlFile($code, 'invoicespdf/' . $generate_pdf);
 
                         if ($save_name_file) {
                             // Leer request XML para logging
-                            $request_xml_b = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . "_REQUEST.xml");
+                            $xml_request_info = find_xml_file($transactionID . "_REQUEST.xml", 'B');
+                            $request_xml_b = @file_get_contents($xml_request_info['path']);
 
                             // Log Factura B aprobada
                             SAH_Logger::facturaB(
@@ -444,17 +827,17 @@ function ajax_foo_handler()
 
                 if ($json2_result_rep == 'A') {
 
-                    if (file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . ".xml", $data_fecae_now)) {
+                    if (file_put_contents(get_xml_save_path($transactionID . ".xml", 'B'), $data_fecae_now)) {
 
                         //generate pdf
                         $generate_pdf_now = generatePDF($code, $transactionID);
-                        $url_file_web_now = URL_WEB_FILES_PDF . basename($generate_pdf_now);
-                        $data_send_pdf_now = sendPDF($code, $propertyID, $reservationID, $generate_pdf_now);
+                        $url_file_web_now = get_pdf_url($generate_pdf_now, 'B');
+                        $data_send_pdf_now = sendPDF($code, $propertyID, $reservationID, $generate_pdf_now, 'B');
 
                         //LOG ID PDF
                         file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdf/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf_now . "_____ ID DEL PDF: " . $data_send_pdf_now . PHP_EOL, FILE_APPEND | LOCK_EX);
 
-                        $save_name_file_now = saveUrlFile($code, $generate_pdf_now);
+                        $save_name_file_now = saveUrlFile($code, 'invoicespdf/' . $generate_pdf_now);
 
                         if ($save_name_file_now) {
                             wp_send_json_success(['data' => 'Generado con éxito.', 'name_file' => $generate_pdf_now, 'rell' => $url_file_web_now, 'file_id' => $data_send_pdf_now]);
@@ -547,159 +930,237 @@ function ajax_foo_handler()
 
         if ($invoiceUrl != null) {
 
-            //generate pdf
-            $generate_pdf = generatePDF($code, $transactionID);
-            $url_file_web = URL_WEB_FILES_PDF . basename($invoiceUrl);
-            $data_send_pdf = sendPDF($code, $propertyID, $reservationID, $generate_pdf);
+            // PDF ya existe - usar find_pdf_file() para buscar en legacy y uploads
+            $filename = basename($invoiceUrl);
 
-            //LOG ID PDF
-            file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdf/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf . "_____ ID DEL PDF: " . $data_send_pdf . PHP_EOL, FILE_APPEND | LOCK_EX);
+            // Detectar tipo basado en path guardado (T por defecto para este handler)
+            $type = (strpos($invoiceUrl, 'invoicespdf/') !== false && strpos($invoiceUrl, 'invoicespdft') === false) ? 'B' : 'T';
 
-            wp_send_json_success(['data' => 'Generado con éxito.', 'name_file' => $invoiceUrl, 'rell' => $url_file_web, 'file_id' => $data_send_pdf]);
+            // Buscar archivo con fallback (legacy -> uploads)
+            $pdf_info = find_pdf_file($filename, $type);
+            $url_file_web = $pdf_info['url'];
+
+            wp_send_json_success(['data' => 'Generado con éxito.', 'name_file' => $invoiceUrl, 'rell' => $url_file_web]);
         } else {
 
-            // Log inicio Factura T
-            SAH_Logger::file(
-                SAH_Logger::INFO,
-                SAH_Logger::FACTURA_T,
-                'FECAESolicitarTipoT_init',
-                array('transaction_id' => $transactionID, 'amount' => $amount, 'cuit' => CUIT),
-                null,
-                'Iniciando solicitud Factura T'
-            );
+            if ($type_gen == 'NULL') {
 
-            // Solicitar autorización a WSCT (AFIP)
-            $data_wsct = FECAESolicitarTipoT($xml_token, $xml_sign, CUIT, $code_transaction, $type_gen);
+                // Log inicio Factura T
+                SAH_Logger::file(
+                    SAH_Logger::INFO,
+                    SAH_Logger::FACTURA_T,
+                    'FECAESolicitarTipoT_init',
+                    array('transaction_id' => $transactionID, 'amount' => $amount, 'cuit' => CUIT),
+                    null,
+                    'Iniciando solicitud Factura T'
+                );
 
-            // Log respuesta cruda para diagnóstico
-            SAH_Logger::file(
-                SAH_Logger::INFO,
-                SAH_Logger::FACTURA_T,
-                'FECAESolicitarTipoT_raw_response',
-                array(
-                    'transaction_id' => $transactionID,
-                    'response_length' => strlen($data_wsct),
-                    'response_preview' => substr($data_wsct, 0, 300)
-                ),
-                null,
-                'Respuesta cruda de FECAESolicitarTipoT'
-            );
+                // Solicitar autorización a WSCT (AFIP)
+                $data_wsct = FECAESolicitarTipoT($xml_token, $xml_sign, CUIT, $code_transaction, $type_gen);
 
-            // Parsear respuesta WSCT (diferente estructura que WSFE)
-            $resultado = '';
-            $cae = '';
-            $fechaVencimientoCae = '';
-            $error_code = '';
-            $error_msg = '';
+                // Log respuesta cruda para diagnóstico
+                SAH_Logger::file(
+                    SAH_Logger::INFO,
+                    SAH_Logger::FACTURA_T,
+                    'FECAESolicitarTipoT_raw_response',
+                    array(
+                        'transaction_id' => $transactionID,
+                        'response_length' => strlen($data_wsct),
+                        'response_preview' => substr($data_wsct, 0, 300)
+                    ),
+                    null,
+                    'Respuesta cruda de FECAESolicitarTipoT'
+                );
 
-            // Extraer resultado de la respuesta WSCT usando regex
-            if (preg_match('/<resultado>([AR])<\/resultado>/i', $data_wsct, $matchRes)) {
-                $resultado = $matchRes[1];
-            }
+                // Parsear respuesta WSCT (diferente estructura que WSFE)
+                $resultado = '';
+                $cae = '';
+                $fechaVencimientoCae = '';
+                $error_code = '';
+                $error_msg = '';
 
-            if (preg_match('/<cae>(\d+)<\/cae>/i', $data_wsct, $matchCae)) {
-                $cae = $matchCae[1];
-            }
+                // Extraer resultado de la respuesta WSCT usando regex
+                if (preg_match('/<resultado>([AR])<\/resultado>/i', $data_wsct, $matchRes)) {
+                    $resultado = $matchRes[1];
+                }
 
-            if (preg_match('/<fechaVencimientoCae>([^<]+)<\/fechaVencimientoCae>/i', $data_wsct, $matchFecha)) {
-                $fechaVencimientoCae = $matchFecha[1];
-            }
+                if (preg_match('/<cae>(\d+)<\/cae>/i', $data_wsct, $matchCae)) {
+                    $cae = $matchCae[1];
+                }
 
-            // Extraer errores si existen
-            if (preg_match('/<codigo>(\d+)<\/codigo>.*?<descripcion>([^<]+)<\/descripcion>/s', $data_wsct, $matchErr)) {
-                $error_code = $matchErr[1];
-                $error_msg = $matchErr[2];
-            }
+                if (preg_match('/<fechaVencimientoCae>([^<]+)<\/fechaVencimientoCae>/i', $data_wsct, $matchFecha)) {
+                    $fechaVencimientoCae = $matchFecha[1];
+                }
 
-            if ($resultado == 'A') {
-                // Aprobado - guardar XML y generar PDF
-                if (file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . ".xml", $data_wsct)) {
+                // Extraer errores si existen
+                if (preg_match('/<codigo>(\d+)<\/codigo>.*?<descripcion>([^<]+)<\/descripcion>/s', $data_wsct, $matchErr)) {
+                    $error_code = $matchErr[1];
+                    $error_msg = $matchErr[2];
+                }
 
-                    // Generar PDF para Tipo T
-                    $generate_pdf = generatePDFTipoT($code, $transactionID);
-                    $url_file_web = URL_WEB_FILES_PDF . basename($generate_pdf);
-                    $data_send_pdf = sendPDF($code, $propertyID, $reservationID, $generate_pdf);
+                if ($resultado == 'A') {
+                    // Aprobado - guardar XML y generar PDF
+                    if (file_put_contents(get_xml_save_path($transactionID . ".xml", 'T'), $data_wsct)) {
 
-                    // LOG ID PDF
-                    file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf . "_____ ID DEL PDF: " . $data_send_pdf . PHP_EOL, FILE_APPEND | LOCK_EX);
+                        // Generar PDF para Tipo T
+                        $generate_pdf = generatePDFTipoT($code, $transactionID);
+                        $url_file_web = get_pdf_url($generate_pdf, 'T');
+                        $data_send_pdf = sendPDF($code, $propertyID, $reservationID, $generate_pdf, 'T');
 
-                    $save_name_file = saveUrlFile($code, $generate_pdf);
+                        // LOG ID PDF
+                        file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf . "_____ ID DEL PDF: " . $data_send_pdf . PHP_EOL, FILE_APPEND | LOCK_EX);
 
-                    if ($save_name_file) {
-                        // Leer request XML para logging
-                        $request_xml_t = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_REQUEST.xml");
+                        $save_name_file = saveUrlFile($code, 'invoicespdft/' . $generate_pdf);
 
-                        // Log Factura T aprobada
-                        SAH_Logger::facturaT(
-                            SAH_Logger::INFO,
-                            'FECAESolicitarTipoT',
-                            "Aprobado - CAE: {$cae}",
-                            array('transaction_id' => $transactionID, 'amount' => $amount, 'cae' => $cae),
-                            array('transaction_id' => $transactionID, 'amount' => $amount),
-                            array('resultado' => 'A', 'cae' => $cae, 'fecha_vto' => $fechaVencimientoCae, 'pdf' => $generate_pdf),
-                            $data_wsct,
-                            $request_xml_t
-                        );
+                        if ($save_name_file) {
+                            // Leer request XML para logging
+                            $xml_request_info = find_xml_file($transactionID . "_REQUEST.xml", 'T');
+                            $request_xml_t = @file_get_contents($xml_request_info['path']);
 
-                        wp_send_json_success([
-                            'data' => 'Generado con éxito.',
-                            'name_file' => $generate_pdf,
-                            'rell' => $url_file_web,
-                            'file_id' => $data_send_pdf,
-                            'cae' => $cae,
-                            'fecha_vto' => $fechaVencimientoCae
-                        ]);
+                            // Log Factura T aprobada
+                            SAH_Logger::facturaT(
+                                SAH_Logger::INFO,
+                                'FECAESolicitarTipoT',
+                                "Aprobado - CAE: {$cae}",
+                                array('transaction_id' => $transactionID, 'amount' => $amount, 'cae' => $cae),
+                                array('transaction_id' => $transactionID, 'amount' => $amount),
+                                array('resultado' => 'A', 'cae' => $cae, 'fecha_vto' => $fechaVencimientoCae, 'pdf' => $generate_pdf),
+                                $data_wsct,
+                                $request_xml_t
+                            );
+
+                            wp_send_json_success([
+                                'data' => 'Generado con éxito.',
+                                'name_file' => $generate_pdf,
+                                'rell' => $url_file_web,
+                                'file_id' => $data_send_pdf,
+                                'cae' => $cae,
+                                'fecha_vto' => $fechaVencimientoCae
+                            ]);
+                        } else {
+                            wp_send_json_error(['data' => 'error.', 'name_file' => $generate_pdf, 'rell' => $url_file_web]);
+                        }
                     } else {
-                        wp_send_json_error(['data' => 'error.', 'name_file' => $generate_pdf, 'rell' => $url_file_web]);
+                        wp_send_json_error(['data' => 'Error al guardar XML.']);
+                    }
+                } elseif ($resultado == 'R') {
+                    // Rechazado - guardar log de error
+                    file_put_contents(get_xml_save_path($transactionID . "_ERROR.xml", 'T'), $data_wsct);
+
+                    // Leer request XML para logging
+                    $xml_request_info = find_xml_file($transactionID . "_REQUEST.xml", 'T');
+                    $request_xml_t = @file_get_contents($xml_request_info['path']);
+
+                    // Log Factura T rechazada
+                    SAH_Logger::facturaT(
+                        SAH_Logger::ERROR,
+                        'FECAESolicitarTipoT',
+                        "Rechazado - Error: {$error_code} - {$error_msg}",
+                        array('transaction_id' => $transactionID, 'error_code' => $error_code, 'amount' => $amount),
+                        array('transaction_id' => $transactionID, 'amount' => $amount),
+                        array('resultado' => 'R', 'error_code' => $error_code, 'error_msg' => $error_msg),
+                        $data_wsct,
+                        $request_xml_t
+                    );
+
+                    wp_send_json_success([
+                        'data' => 'error',
+                        'json_res' => 'R',
+                        'error_code' => $error_code,
+                        'error_msg' => $error_msg,
+                    ]);
+                } else {
+                    // Error en la respuesta o respuesta vacía/malformada
+                    file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf_error.json", "transactionID:" . $transactionID . "___ Data AFIP: " . $data_wsct . PHP_EOL, FILE_APPEND | LOCK_EX);
+
+                    // Leer request XML para logging
+                    $xml_request_info = find_xml_file($transactionID . "_REQUEST.xml", 'T');
+                    $request_xml_t = @file_get_contents($xml_request_info['path']);
+
+                    // Log error de respuesta
+                    SAH_Logger::facturaT(
+                        SAH_Logger::ERROR,
+                        'FECAESolicitarTipoT',
+                        "Respuesta sin resultado válido (ni A ni R)",
+                        array('transaction_id' => $transactionID, 'amount' => $amount, 'resultado' => $resultado),
+                        array('transaction_id' => $transactionID, 'amount' => $amount),
+                        array('resultado' => $resultado, 'error_code' => $error_code, 'error_msg' => $error_msg, 'response_preview' => substr($data_wsct, 0, 500)),
+                        $data_wsct,
+                        $request_xml_t
+                    );
+
+                    wp_send_json_error(['data' => 'error', 'data_afip' => $data_wsct, 'error_code' => $error_code, 'error_msg' => $error_msg]);
+                }
+
+            } else {
+
+                // RETRY con fecha actual - solicitar WSCT con fecha de hoy
+                $data_wsct_now = FECAESolicitarTipoT($xml_token, $xml_sign, CUIT, $code_transaction, $type_gen);
+
+                // Parsear respuesta WSCT
+                $resultado_now = '';
+                $cae_now = '';
+                $fechaVencimientoCae_now = '';
+                $error_code_now = '';
+                $error_msg_now = '';
+
+                if (preg_match('/<resultado>([AR])<\/resultado>/i', $data_wsct_now, $matchRes)) {
+                    $resultado_now = $matchRes[1];
+                }
+
+                if (preg_match('/<cae>(\d+)<\/cae>/i', $data_wsct_now, $matchCae)) {
+                    $cae_now = $matchCae[1];
+                }
+
+                if (preg_match('/<fechaVencimientoCae>([^<]+)<\/fechaVencimientoCae>/i', $data_wsct_now, $matchFecha)) {
+                    $fechaVencimientoCae_now = $matchFecha[1];
+                }
+
+                if (preg_match('/<codigo>(\d+)<\/codigo>.*?<descripcion>([^<]+)<\/descripcion>/s', $data_wsct_now, $matchErr)) {
+                    $error_code_now = $matchErr[1];
+                    $error_msg_now = $matchErr[2];
+                }
+
+                if ($resultado_now == 'A') {
+                    // Aprobado - guardar XML y generar PDF
+                    if (file_put_contents(get_xml_save_path($transactionID . ".xml", 'T'), $data_wsct_now)) {
+
+                        // Generar PDF para Tipo T
+                        $generate_pdf_now = generatePDFTipoT($code, $transactionID);
+                        $url_file_web_now = get_pdf_url($generate_pdf_now, 'T');
+                        $data_send_pdf_now = sendPDF($code, $propertyID, $reservationID, $generate_pdf_now, 'T');
+
+                        // LOG ID PDF
+                        file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf.json", "transactionID:" . $transactionID . "___ Nombre del PDF: " . $generate_pdf_now . "_____ ID DEL PDF: " . $data_send_pdf_now . PHP_EOL, FILE_APPEND | LOCK_EX);
+
+                        $save_name_file_now = saveUrlFile($code, 'invoicespdft/' . $generate_pdf_now);
+
+                        if ($save_name_file_now) {
+                            wp_send_json_success([
+                                'data' => 'Generado con éxito.',
+                                'name_file' => $generate_pdf_now,
+                                'rell' => $url_file_web_now,
+                                'file_id' => $data_send_pdf_now,
+                                'cae' => $cae_now,
+                                'fecha_vto' => $fechaVencimientoCae_now
+                            ]);
+                        } else {
+                            wp_send_json_error(['data' => 'error.', 'name_file' => $generate_pdf_now, 'rell' => $url_file_web_now]);
+                        }
+                    } else {
+                        wp_send_json_error(['data' => 'Error al guardar XML.']);
                     }
                 } else {
-                    wp_send_json_error(['data' => 'Error al guardar XML.']);
+                    // Rechazado en retry - log de error
+                    file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf_error.json", "transactionID:" . $transactionID . "___ Data AFIP (retry): " . $data_wsct_now . PHP_EOL, FILE_APPEND | LOCK_EX);
+
+                    wp_send_json_success([
+                        'data' => 'error',
+                        'json_res' => $resultado_now,
+                        'error_code' => $error_code_now,
+                        'error_msg' => $error_msg_now,
+                    ]);
                 }
-            } elseif ($resultado == 'R') {
-                // Rechazado - guardar log de error
-                file_put_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_ERROR.xml", $data_wsct);
-
-                // Leer request XML para logging
-                $request_xml_t = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_REQUEST.xml");
-
-                // Log Factura T rechazada
-                SAH_Logger::facturaT(
-                    SAH_Logger::ERROR,
-                    'FECAESolicitarTipoT',
-                    "Rechazado - Error: {$error_code} - {$error_msg}",
-                    array('transaction_id' => $transactionID, 'error_code' => $error_code, 'amount' => $amount),
-                    array('transaction_id' => $transactionID, 'amount' => $amount),
-                    array('resultado' => 'R', 'error_code' => $error_code, 'error_msg' => $error_msg),
-                    $data_wsct,
-                    $request_xml_t
-                );
-
-                wp_send_json_success([
-                    'data' => 'error',
-                    'json_res' => 'R',
-                    'error_code' => $error_code,
-                    'error_msg' => $error_msg,
-                ]);
-            } else {
-                // Error en la respuesta o respuesta vacía/malformada
-                file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/log_pdf_error.json", "transactionID:" . $transactionID . "___ Data AFIP: " . $data_wsct . PHP_EOL, FILE_APPEND | LOCK_EX);
-
-                // Leer request XML para logging
-                $request_xml_t = @file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . "_REQUEST.xml");
-
-                // Log error de respuesta
-                SAH_Logger::facturaT(
-                    SAH_Logger::ERROR,
-                    'FECAESolicitarTipoT',
-                    "Respuesta sin resultado válido (ni A ni R)",
-                    array('transaction_id' => $transactionID, 'amount' => $amount, 'resultado' => $resultado),
-                    array('transaction_id' => $transactionID, 'amount' => $amount),
-                    array('resultado' => $resultado, 'error_code' => $error_code, 'error_msg' => $error_msg, 'response_preview' => substr($data_wsct, 0, 500)),
-                    $data_wsct,
-                    $request_xml_t
-                );
-
-                wp_send_json_error(['data' => 'error', 'data_afip' => $data_wsct, 'error_code' => $error_code, 'error_msg' => $error_msg]);
             }
         }
     }
@@ -972,12 +1433,19 @@ function getGuest($property_id, $guest_id)
     return json_decode($response);
 }
 
-function sendPDF($code, $propertyID, $reservationID, $name_file)
+function sendPDF($code, $propertyID, $reservationID, $name_file, $type = 'B')
 {
 
     global $access_token_global;
 
-    $route_file = plugin_dir_path(__FILE__) . "../invoicespdf/" . $name_file;
+    // Buscar PDF con fallback (legacy -> uploads)
+    $pdf_info = find_pdf_file($name_file, $type);
+    $route_file = $pdf_info['path'];
+
+    // Verificar que el archivo existe
+    if (!file_exists($route_file)) {
+        return ['error' => 'PDF file not found: ' . $name_file, 'location' => $pdf_info['location']];
+    }
 
     $curl = curl_init();
 
@@ -1390,7 +1858,7 @@ function FECAESolicitar($Token, $Sign, $Cuit, $code_transaction, $timenow)
     $headers = ["POST /wsfev1/service.asmx HTTP/1.1", "Host: servicios1.afip.gov.ar", "Content-Type: text/xml; charset=utf-8", "Content-Length: " . strlen($xml_post_string)];
 
     // Guardar XML de request para debug
-    $request_file = plugin_dir_path(__FILE__) . '../invoicesxml/' . $transactionID . '_REQUEST.xml';
+    $request_file = get_xml_save_path($transactionID . '_REQUEST.xml', 'B');
     @file_put_contents($request_file, $xml_post_string);
 
     $ch = curl_init();
@@ -1567,7 +2035,7 @@ function FECAESolicitar($Token, $Sign, $Cuit, $code_transaction, $timenow)
     ];
 
     // Guardar XML de request para debug
-    $request_file = plugin_dir_path(__FILE__) . '../invoicesxmlt/' . $transactionID . '_REQUEST.xml';
+    $request_file = get_xml_save_path($transactionID . '_REQUEST.xml', 'T');
     file_put_contents($request_file, $xml_post_string);
 
     $ch = curl_init();
@@ -1790,7 +2258,7 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow)
     // =============================
     // 8. GUARDAR XML REQUEST (DEBUG)
     // =============================
-    $request_file = plugin_dir_path(__FILE__) . '../invoicesxmlt/' . $row->transactionID . '_REQUEST.xml';
+    $request_file = get_xml_save_path($row->transactionID . '_REQUEST.xml', 'T');
     @file_put_contents($request_file, $xml);
 
     // =============================
@@ -1982,7 +2450,9 @@ function generatePDF($code, $transactionID)
     $monto_neto = number_format($monto_neto, 2, ',', '.');
     $monto_iva = number_format($monto_iva, 2, ',', '.');
 
-    $xml_file = file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxml/" . $transactionID . ".xml");
+    // Buscar XML con fallback (legacy -> uploads)
+    $xml_info = find_xml_file($transactionID . ".xml", 'B');
+    $xml_file = file_get_contents($xml_info['path']);
 
     $doc = new DOMDocument();
     $doc->loadXML($xml_file);
@@ -2243,7 +2713,9 @@ function generatePDF($code, $transactionID)
 
     $filen = $name_file . '.pdf';
 
-    file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdf/" . $name_file . ".pdf", $output);
+    // Guardar en uploads/hotels/invoicespdf/ (nuevo sistema)
+    $save_path = get_pdf_save_path($filen, 'B');
+    file_put_contents($save_path, $output);
 
     return $filen;
 }
@@ -2279,8 +2751,9 @@ function generatePDFTipoT($code, $transactionID)
     $monto_iva_fmt = number_format($monto_iva, 2, ',', '.');
     $importe_reintegro_fmt = number_format($importe_reintegro, 2, ',', '.');
 
-    // Leer XML de respuesta WSCT (desde carpeta invoicesxmlt)
-    $xml_file = file_get_contents(plugin_dir_path(__FILE__) . "../invoicesxmlt/" . $transactionID . ".xml");
+    // Leer XML de respuesta WSCT con fallback (legacy -> uploads)
+    $xml_info = find_xml_file($transactionID . ".xml", 'T');
+    $xml_file = file_get_contents($xml_info['path']);
 
     // Extraer datos del XML WSCT
     $pto_venta = '2';
@@ -2307,8 +2780,8 @@ function generatePDFTipoT($code, $transactionID)
     $codbarra = generate_qr($name_file);
     $cod_barra = URL_WEB_FILES_QR . 'img/codesqr/' . $codbarra;
 
-    // Nombre del país para mostrar
-    $pais_nombre = $country;
+    // Nombre del país para mostrar (convierte código ISO a nombre)
+    $pais_nombre = get_country_name($country);
 
     $html = '
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
@@ -2441,7 +2914,7 @@ function generatePDFTipoT($code, $transactionID)
                     <tbody>
                     <tr>
                         <td class="whitet">1</td>
-                        <td class="whitet">Servicio de hoteleria - alojamiento (BOOKING: ' . $reservationID . ')</td>
+                        <td class="whitet">Servicio de hoteleria - Alojamiento</td>
                         <td class="whitet">1,00</td>
                         <td class="whitet">unidades</td>
                         <td class="whitet">' . $monto_neto_fmt . '</td>
@@ -2518,8 +2991,9 @@ function generatePDFTipoT($code, $transactionID)
     $output = $dompdf->output();
     $filen = $name_file . '.pdf';
 
-    // Guardar en carpeta invoicespdft (para Tipo T)
-    file_put_contents(plugin_dir_path(__FILE__) . "../invoicespdft/" . $name_file . ".pdf", $output);
+    // Guardar en uploads/hotels/invoicespdft/ (nuevo sistema)
+    $save_path = get_pdf_save_path($filen, 'T');
+    file_put_contents($save_path, $output);
 
     return $filen;
 }
