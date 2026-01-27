@@ -525,22 +525,87 @@ function ajax_foo_handler()
 
         $transaction_id = intval($_POST['transaction_id']);
 
+        // Log inicio de sincronización
+        SAH_Logger::log(
+            SAH_Logger::INFO,
+            'sync_transaction',
+            'Iniciando sincronización',
+            ['transaction_id' => $transaction_id]
+        );
+
         // Obtener datos de la transaccion
         $transaction = $wpdb->get_row($wpdb->prepare(
-            "SELECT id, propertyID, guestID, passportNumber FROM {$table_name_transactions} WHERE id = %d",
+            "SELECT id, propertyID, guestID, reservationID, passportNumber FROM {$table_name_transactions} WHERE id = %d",
             $transaction_id
         ));
 
         if (!$transaction) {
+            SAH_Logger::log(
+                SAH_Logger::ERROR,
+                'sync_transaction',
+                'Transacción no encontrada en BD',
+                ['transaction_id' => $transaction_id]
+            );
             wp_send_json_error(['message' => 'Transaccion no encontrada.']);
+            wp_die();
+        }
+
+        // Log datos de transacción
+        SAH_Logger::log(
+            SAH_Logger::INFO,
+            'sync_transaction',
+            'Datos de transacción obtenidos',
+            [
+                'transaction_id' => $transaction_id,
+                'propertyID' => $transaction->propertyID,
+                'guestID' => $transaction->guestID,
+                'reservationID' => $transaction->reservationID
+            ]
+        );
+
+        // Verificar que tenemos access_token
+        if (empty($access_token_global)) {
+            SAH_Logger::log(
+                SAH_Logger::ERROR,
+                'sync_transaction',
+                'Access token vacío o no disponible',
+                ['transaction_id' => $transaction_id]
+            );
+            wp_send_json_error(['message' => 'Error de autenticación con CloudBeds. Token no disponible.']);
             wp_die();
         }
 
         // Obtener datos del guest desde CloudBeds
         $data_guest = getGuest($transaction->propertyID, $transaction->guestID);
 
+        // Log respuesta de CloudBeds
+        SAH_Logger::log(
+            SAH_Logger::INFO,
+            'sync_transaction',
+            'Respuesta de CloudBeds getGuest',
+            [
+                'transaction_id' => $transaction_id,
+                'propertyID' => $transaction->propertyID,
+                'guestID' => $transaction->guestID,
+                'response' => $data_guest
+            ]
+        );
+
         if (!$data_guest || !isset($data_guest->data)) {
-            wp_send_json_error(['message' => 'Error al obtener datos de CloudBeds.']);
+            $error_msg = isset($data_guest->message) ? $data_guest->message : 'Respuesta vacía o inválida';
+            SAH_Logger::log(
+                SAH_Logger::ERROR,
+                'sync_transaction',
+                'Error al obtener datos de CloudBeds',
+                [
+                    'transaction_id' => $transaction_id,
+                    'propertyID' => $transaction->propertyID,
+                    'guestID' => $transaction->guestID,
+                    'error' => $error_msg,
+                    'full_response' => $data_guest
+                ]
+            );
+            wp_send_json_error(['message' => 'Error al obtener datos de CloudBeds: ' . $error_msg]);
             wp_die();
         }
 
@@ -566,8 +631,28 @@ function ajax_foo_handler()
         );
 
         if ($updated === false) {
+            SAH_Logger::log(
+                SAH_Logger::ERROR,
+                'sync_transaction',
+                'Error al actualizar BD',
+                [
+                    'transaction_id' => $transaction_id,
+                    'wpdb_error' => $wpdb->last_error
+                ]
+            );
             wp_send_json_error(['message' => 'Error al actualizar la base de datos.']);
         } else {
+            SAH_Logger::log(
+                SAH_Logger::INFO,
+                'sync_transaction',
+                'Sincronización completada exitosamente',
+                [
+                    'transaction_id' => $transaction_id,
+                    'passportNumber' => $pass_dni,
+                    'country' => $data_guest->data->country ?? '',
+                    'city' => $data_guest->data->city ?? ''
+                ]
+            );
             wp_send_json_success(['message' => 'Transaccion sincronizada correctamente.']);
         }
 
