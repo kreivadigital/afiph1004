@@ -580,17 +580,35 @@ function ajax_foo_handler()
             wp_die();
         }
 
-        // Obtener datos del guest desde CloudBeds
-        $data_guest = getGuest($transaction->propertyID, $transaction->guestID);
+        // Determinar si usamos guestID o reservationID (fallback)
+        $using_fallback = empty($transaction->guestID) || $transaction->guestID == '0' || $transaction->guestID == 0;
+        $lookup_method = $using_fallback ? 'reservationID' : 'guestID';
+
+        // Log método de búsqueda
+        SAH_Logger::system(
+            SAH_Logger::INFO,
+            'sync_transaction_lookup',
+            'Buscando guest con ' . $lookup_method . ': ' . ($using_fallback ? $transaction->reservationID : $transaction->guestID),
+            ['transaction_id' => $transaction_id],
+            [
+                'method' => $lookup_method,
+                'guestID' => $transaction->guestID,
+                'reservationID' => $transaction->reservationID,
+                'using_fallback' => $using_fallback
+            ]
+        );
+
+        // Obtener datos del guest desde CloudBeds (con fallback a reservationID)
+        $data_guest = getGuest($transaction->propertyID, $transaction->guestID, $transaction->reservationID);
 
         // Log respuesta de CloudBeds (convertir objeto a array para JSON)
         $guest_response_log = json_decode(json_encode($data_guest), true);
         SAH_Logger::system(
             SAH_Logger::INFO,
             'sync_transaction_cb_response',
-            'Respuesta de CloudBeds getGuest recibida',
+            'Respuesta de CloudBeds getGuest recibida (método: ' . $lookup_method . ')',
             ['transaction_id' => $transaction_id],
-            ['propertyID' => $transaction->propertyID, 'guestID' => $transaction->guestID],
+            ['propertyID' => $transaction->propertyID, 'guestID' => $transaction->guestID, 'reservationID' => $transaction->reservationID, 'method' => $lookup_method],
             $guest_response_log
         );
 
@@ -1493,12 +1511,24 @@ function getDataByGuestOLD()
     }
 }
 
-function getGuest($property_id, $guest_id)
+function getGuest($property_id, $guest_id, $reservation_id = null)
 {
 
     global $access_token_global;
 
-    $content = "propertyID=" . $property_id . "&guestID=" . $guest_id;
+    // Construir query params - usar reservationID si guestID es inválido
+    $params = array('propertyID' => $property_id);
+
+    if (!empty($guest_id) && $guest_id != '0' && $guest_id != 0) {
+        $params['guestID'] = $guest_id;
+    } elseif (!empty($reservation_id)) {
+        // Fallback: usar reservationID cuando guestID es inválido
+        $params['reservationID'] = $reservation_id;
+    } else {
+        $params['guestID'] = $guest_id; // Mantener comportamiento original si no hay alternativa
+    }
+
+    $content = http_build_query($params);
 
     $curl = curl_init();
 
