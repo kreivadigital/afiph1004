@@ -32,6 +32,7 @@ global $wpdb;
 $tables_to_drop = array(
     $wpdb->prefix . 'hotels_config',
     $wpdb->prefix . 'hotels_transactions',
+    $wpdb->prefix . 'hotels_logs',
 );
 
 foreach ($tables_to_drop as $table) {
@@ -72,6 +73,7 @@ $upload_dirs = array(
     WP_PLUGIN_DIR . '/afiph1004/php/invoicesxml/',
     WP_PLUGIN_DIR . '/afiph1004/php/invoicespdft/',
     WP_PLUGIN_DIR . '/afiph1004/php/invoicesxmlt/',
+    WP_PLUGIN_DIR . '/afiph1004/log/',
 );
 
 foreach ($upload_dirs as $dir) {

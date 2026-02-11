@@ -93,6 +93,30 @@ class SAH_Activator {
         ) $charset_collate;";
 
         dbDelta($sql_transactions);
+
+        // Tabla de logs
+        $table_logs = $wpdb->prefix . "hotels_logs";
+        $sql_logs = "CREATE TABLE $table_logs (
+            `id` bigint(20) NOT NULL AUTO_INCREMENT,
+            `log_date` datetime NOT NULL,
+            `log_level` enum('ERROR','INFO','WARNING') NOT NULL DEFAULT 'INFO',
+            `invoice_type` varchar(10) CHARACTER SET utf8 NOT NULL DEFAULT 'SYS',
+            `username` varchar(60) CHARACTER SET utf8 NOT NULL,
+            `action` varchar(255) CHARACTER SET utf8 NOT NULL,
+            `response` text CHARACTER SET utf8 NULL,
+            `transaction_id` varchar(256) CHARACTER SET utf8 NULL,
+            `amount` varchar(50) CHARACTER SET utf8 NULL,
+            `cae` varchar(50) CHARACTER SET utf8 NULL,
+            `error_code` varchar(50) CHARACTER SET utf8 NULL,
+            `ip_address` varchar(45) CHARACTER SET utf8 NULL,
+            PRIMARY KEY (`id`),
+            KEY `idx_log_date` (`log_date`),
+            KEY `idx_log_level` (`log_level`),
+            KEY `idx_invoice_type` (`invoice_type`),
+            KEY `idx_transaction_id` (`transaction_id`)
+        ) $charset_collate;";
+
+        dbDelta($sql_logs);
     }
 
     /**

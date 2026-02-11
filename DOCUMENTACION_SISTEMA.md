@@ -7,13 +7,14 @@
 3. [Estructura de Archivos](#3-estructura-de-archivos)
 4. [Base de Datos](#4-base-de-datos)
 5. [Integraciones Externas](#5-integraciones-externas)
-6. [Sistema de Autenticacion y Seguridad](#6-sistema-de-autenticacion-y-seguridad) **[NUEVO]**
+6. [Sistema de Autenticacion y Seguridad](#6-sistema-de-autenticacion-y-seguridad)
 7. [Flujo Principal de Facturacion](#7-flujo-principal-de-facturacion)
 8. [Responsabilidades de Archivos](#8-responsabilidades-de-archivos)
 9. [Diagramas de Flujo](#9-diagramas-de-flujo)
 10. [Tipos de Facturas Soportadas](#10-tipos-de-facturas-soportadas)
 11. [Estado Actual de Factura Tipo T](#11-estado-actual-de-factura-tipo-t)
-12. [Plan de Implementacion - Factura Tipo T](#12-plan-de-implementacion---factura-tipo-t)
+12. [Sistema de Almacenamiento de PDFs y URLs](#12-sistema-de-almacenamiento-de-pdfs-y-urls) **[NUEVO]**
+13. [Plan de Implementacion - Factura Tipo T](#13-plan-de-implementacion---factura-tipo-t)
 
 ---
 
@@ -1541,7 +1542,191 @@ function FECAESolicitarTipoT($Token, $Sign, $Cuit, $code_transaction, $timenow) 
 
 ---
 
-## 12. Plan de Implementacion - Factura Tipo T
+## 12. Sistema de Almacenamiento de PDFs y URLs
+
+### 12.1 Estructura de Carpetas de PDFs
+
+El sistema almacena los PDFs generados en carpetas separadas según el tipo de factura:
+
+```
+/php/
+├── invoicespdf/          # PDFs de Factura B
+│   ├── {reservationID}_*.pdf
+│   └── log_pdf.json
+├── invoicespdft/         # PDFs de Factura T
+│   ├── {reservationID}_*.pdf
+│   └── log_pdf.json
+```
+
+### 12.2 Formato de `invoiceUrl` en Base de Datos
+
+**Formato Nuevo (recomendado):**
+El campo `invoiceUrl` en la tabla `wp_hotels_transactions` ahora incluye la carpeta:
+
+| Tipo Factura | Formato invoiceUrl |
+|--------------|-------------------|
+| Factura B | `invoicespdf/archivo.pdf` |
+| Factura T | `invoicespdft/archivo.pdf` |
+
+**Formato Antiguo (compatibilidad):**
+Registros anteriores solo contienen el nombre del archivo: `archivo.pdf`
+
+### 12.3 Lógica de Guardado
+
+Al generar una nueva factura, se guarda la URL con la carpeta incluida:
+
+```php
+// Factura B
+$save_name_file = saveUrlFile($code, 'invoicespdf/' . $generate_pdf);
+
+// Factura T
+$save_name_file = saveUrlFile($code, 'invoicespdft/' . $generate_pdf);
+```
+
+### 12.4 Lógica de Descarga con Validación de Existencia
+
+Cuando se solicita descargar un PDF existente, el sistema:
+
+1. **Extrae el nombre del archivo** usando `basename($invoiceUrl)`
+2. **Verifica existencia** en ambas carpetas
+3. **Prioriza** según el tipo de handler:
+   - Handler Factura B: busca primero en `invoicespdf/`, luego en `invoicespdft/`
+   - Handler Factura T: busca primero en `invoicespdft/`, luego en `invoicespdf/`
+4. **Construye la URL** correcta basándose en dónde se encontró el archivo
+
+**Código de validación (Handler Factura B):**
+```php
+if ($invoiceUrl != null) {
+    $plugin_base_url = plugin_dir_url(dirname(dirname(__FILE__)));
+    $plugin_base_path = plugin_dir_path(dirname(dirname(__FILE__)));
+
+    $filename = basename($invoiceUrl);
+
+    // Rutas posibles
+    $path_factura_b = $plugin_base_path . 'php/invoicespdf/' . $filename;
+    $path_factura_t = $plugin_base_path . 'php/invoicespdft/' . $filename;
+
+    if (strpos($invoiceUrl, '/') !== false) {
+        // Formato nuevo: verificar ruta especificada, luego alternativas
+        $expected_path = $plugin_base_path . 'php/' . $invoiceUrl;
+        if (file_exists($expected_path)) {
+            $url_file_web = $plugin_base_url . 'php/' . $invoiceUrl;
+        } elseif (file_exists($path_factura_b)) {
+            $url_file_web = $plugin_base_url . 'php/invoicespdf/' . $filename;
+        } elseif (file_exists($path_factura_t)) {
+            $url_file_web = $plugin_base_url . 'php/invoicespdft/' . $filename;
+        } else {
+            $url_file_web = $plugin_base_url . 'php/' . $invoiceUrl;
+        }
+    } else {
+        // Formato antiguo: buscar en ambas carpetas
+        if (file_exists($path_factura_b)) {
+            $url_file_web = $plugin_base_url . 'php/invoicespdf/' . $filename;
+        } elseif (file_exists($path_factura_t)) {
+            $url_file_web = $plugin_base_url . 'php/invoicespdft/' . $filename;
+        } else {
+            $url_file_web = URL_WEB_FILES_PDF . $invoiceUrl; // Fallback
+        }
+    }
+
+    wp_send_json_success([...]);
+}
+```
+
+### 12.5 Compatibilidad con Registros Existentes
+
+El sistema mantiene compatibilidad total con registros antiguos:
+
+| Escenario | Detección | Comportamiento |
+|-----------|-----------|----------------|
+| `invoiceUrl` contiene `/` | Formato nuevo | Usa ruta especificada, valida existencia |
+| `invoiceUrl` sin `/` | Formato antiguo | Busca en ambas carpetas |
+| Archivo no encontrado | Fallback | Usa constante `URL_WEB_FILES_PDF` |
+
+### 12.6 Optimización: No Regenerar PDFs Existentes
+
+Cuando `invoiceUrl` ya existe en la base de datos, el sistema **no intenta regenerar** el PDF:
+
+**Antes (problemático):**
+```php
+if ($invoiceUrl != null) {
+    $generate_pdf = generatePDF($code, $transactionID); // ❌ Fallaba si XML no existía
+    // ...
+}
+```
+
+**Después (optimizado):**
+```php
+if ($invoiceUrl != null) {
+    // Solo construir URL, no regenerar
+    // ✓ No requiere archivo XML
+    // ✓ Más rápido
+    // ✓ No errores si XML fue eliminado
+}
+```
+
+### 12.7 Diagrama de Flujo de Descarga
+
+```
++------------------------+
+| Solicitud de descarga  |
+| (invoiceUrl en BD)     |
++----------+-------------+
+           |
+           v
++----------+-------------+
+| ¿invoiceUrl != null?   |
++----------+-------------+
+           |
+     +-----+-----+
+     |           |
+    [SI]        [NO]
+     |           |
+     v           v
++----+----+  +--+--+
+|Construir|  |Crear|
+|URL      |  |nueva|
+|descarga |  |factura|
++----+----+  +------+
+     |
+     v
++----+----+
+|Extraer  |
+|filename |
++----+----+
+     |
+     v
++----+----+-------------+
+|¿Tiene '/' en invoiceUrl?|
++----+----+-------------+
+     |
+  +--+--+
+  |     |
+ [SI]  [NO]
+  |     |
+  v     v
++---+  +----+
+|Ver|  |Bus-|
+|ruta|  |car |
+|esp.|  |ambas|
++---+  +----+
+  |     |
+  v     v
++-----------+
+|file_exists|
+|validación |
++-----+-----+
+      |
+      v
++-----------+
+|Retornar   |
+|URL válida |
++-----------+
+```
+
+---
+
+## 13. Plan de Implementacion - Factura Tipo T
 
 ### Fase 1: Preparacion y Validaciones
 
@@ -1771,5 +1956,17 @@ define("SENDPDF_URL", "https://hotels.cloudbeds.com/api/v1.2/postReservationDocu
 ---
 
 *Documento generado el 26 de Diciembre de 2025*
+*Última actualización: 22 de Enero de 2026*
 *Sistema: Plugin WordPress "Services API Hotel" v1.1*
 *Autor original del plugin: Osward Pacheco*
+
+---
+
+## Historial de Cambios
+
+| Fecha | Sección | Descripción |
+|-------|---------|-------------|
+| 22-Ene-2026 | 12 | Nueva sección: Sistema de Almacenamiento de PDFs y URLs |
+| 22-Ene-2026 | 12.1-12.7 | Documentación del nuevo formato de `invoiceUrl` con carpeta incluida |
+| 22-Ene-2026 | 12.4 | Lógica de validación de existencia de archivos en ambas carpetas |
+| 22-Ene-2026 | 12.6 | Optimización: no regenerar PDFs cuando ya existen |

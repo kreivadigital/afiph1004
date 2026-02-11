@@ -3,7 +3,7 @@
  * Plugin Name: Services API Hotel
  * Plugin URI: #
  * Description: Servicios API de Hotel - Facturacion AFIP (Tipo B y T)
- * Version: 1.2.1
+ * Version: 1.2.2
  * Author: Osward Pacheco
  * Author URI: https://github.com/OswardJr
  * License: GPL
@@ -83,8 +83,38 @@ function ss_options_install()
     // Ejecutar migraciones para tablas existentes
     sah_run_migrations();
 
+    // Crear directorios de uploads para PDFs
+    sah_create_upload_directories();
+
     // Guardar version del plugin
     update_option('sah_plugin_version', SAH_PLUGIN_VERSION);
+}
+
+/**
+ * Crear directorios de uploads para almacenar PDFs y XMLs
+ */
+function sah_create_upload_directories() {
+    $upload_dir = wp_upload_dir();
+    $base_dir = trailingslashit($upload_dir['basedir']) . 'hotels/';
+
+    $dirs = [
+        $base_dir,
+        $base_dir . 'invoicespdf/',
+        $base_dir . 'invoicespdft/',
+        $base_dir . 'invoicesxml/',
+        $base_dir . 'invoicesxmlt/',
+    ];
+
+    foreach ($dirs as $dir) {
+        if (!file_exists($dir)) {
+            wp_mkdir_p($dir);
+            // Crear .htaccess para proteger archivos
+            $htaccess = $dir . '.htaccess';
+            if (!file_exists($htaccess)) {
+                @file_put_contents($htaccess, "Options -Indexes\n");
+            }
+        }
+    }
 }
 
 /**
@@ -151,6 +181,7 @@ function pl_deactivation()
 // Cargar clases de activacion/desactivacion
 require_once(SAH_PLUGIN_DIR . 'includes/class-activator.php');
 require_once(SAH_PLUGIN_DIR . 'includes/class-deactivator.php');
+require_once(SAH_PLUGIN_DIR . 'includes/class-logger.php');
 
 // Hooks de activacion y desactivacion
 register_activation_hook(__FILE__, array('SAH_Activator', 'activate'));
@@ -170,6 +201,30 @@ function sah_check_migrations() {
     }
 }
 
+// Asegurar que existen los directorios de uploads para PDFs
+add_action('admin_init', 'sah_ensure_upload_directories');
+function sah_ensure_upload_directories() {
+    // Solo ejecutar una vez por sesion
+    static $checked = false;
+    if ($checked) {
+        return;
+    }
+    $checked = true;
+
+    // Verificar si ya se crearon los directorios
+    if (get_transient('sah_upload_dirs_checked')) {
+        return;
+    }
+
+    // Crear directorios si la funcion existe
+    if (function_exists('ensure_hotels_upload_dirs')) {
+        ensure_hotels_upload_dirs();
+    }
+
+    // Marcar como verificado (cache por 1 dia)
+    set_transient('sah_upload_dirs_checked', '1', DAY_IN_SECONDS);
+}
+
 // Constantes legacy (para compatibilidad)
 define('ROOTDIR', plugin_dir_path(__FILE__));
 define('baseURLN', 'datacita');
@@ -186,6 +241,8 @@ require_once(SAH_PLUGIN_DIR . 'php/varios/panel_admin.php');
 require_once(SAH_PLUGIN_DIR . 'php/consultas/main_global.php');
 require_once(SAH_PLUGIN_DIR . 'php/config_init/transactions-list.php');
 require_once(SAH_PLUGIN_DIR . 'php/config_init/transactions-list_dev.php');
+require_once(SAH_PLUGIN_DIR . 'php/config_init/logs-list.php');
+require_once(SAH_PLUGIN_DIR . 'php/config_init/logs-dev.php');
 
 //menu items
 
@@ -255,5 +312,25 @@ function config_modifymenu()
         'manage_options', // capability (asegúrate de que tu usuario tenga esta capacidad, como administrador)
         'transactions_list_dev', // ¡menu slug! Este será el identificador en la URL
         'transactions_list_dev' // ¡función de callback! El nombre de tu función en transactions_list_dev.php
+    );
+
+    // Submenu: Logs de facturacion (visible en menu)
+    add_submenu_page(
+        'config_list', // parent slug
+        'Logs', // page title
+        'Logs', // menu title
+        'manage_options', // capability
+        'logs_list', // menu slug
+        'logs_list' // function
+    );
+
+    // Submenu: Logs de desarrollo (oculto, acceso directo por URL)
+    add_submenu_page(
+        null, // parent slug NULL = oculto
+        'Logs Desarrollo', // page title
+        'Logs Desarrollo', // menu title
+        'manage_options', // capability
+        'logs_dev', // menu slug
+        'logs_dev' // function
     );
 }
